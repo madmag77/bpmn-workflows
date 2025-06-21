@@ -8,6 +8,8 @@ A Python-based tool for executing BPMN workflows using LangGraph. This tool allo
 - `workflow_functions.py` - Collection of workflow functions that can be used in BPMN tasks
 - `validate_workflow.py` - Script to validate BPMN XML files
 - `visualize_workflow.py` - Script to generate visual diagrams of workflows
+- `generate_ext_schema.py` - Script to generate BPMN extension schema from decorated functions
+- `bpmn_ext.py` - Module for BPMN extension support and operation decorators
 - `examples/` - Directory containing example workflows
   - `example_1/` - Example workflow with QA processing logic
 
@@ -41,6 +43,27 @@ Example:
 python run_bpmn_workflow.py examples/example_1/example1.xml --param input_text=hello --param rephraseCount=0
 ```
 
+### Testing Workflows
+
+The project includes a test suite to verify workflow behavior. Tests are located in the `tests` directory and can be run using pytest:
+
+```bash
+pytest -q
+```
+
+Example test files demonstrate how to test different workflow branches and scenarios:
+- `test_branch_qa_ok.py` - Testing successful QA flow
+- `test_branch_qa_rephrase.py` - Testing query rephrasing
+- `test_branch_qa_error.py` - Testing error handling
+- `test_branch_summarize.py` - Testing summarization flow
+- `test_branch_not_clear.py` - Testing unclear input handling
+
+To create new tests:
+1. Create a new test file in the `tests` directory
+2. Import necessary helper functions from `helper.py`
+3. Define test functions that verify specific workflow paths
+4. Run tests using pytest to ensure workflow behaves as expected
+
 ### Validating Workflows
 
 Before running a workflow, you can validate the BPMN XML file:
@@ -54,6 +77,22 @@ This will check:
 - BPMN schema compliance
 - Presence of required elements
 - Referenced function availability
+- Extension elements against generated schema
+- Operation input/output parameters
+
+### Generating Extension Schema
+
+Generate the BPMN extension schema from decorated workflow functions:
+
+```bash
+python generate_ext_schema.py
+```
+
+This will:
+- Scan `workflow_functions.py` for functions decorated with `@bpmn_op`
+- Extract operation names and input/output parameters
+- Generate `bpmn_ext.xsd` schema file
+- Enable validation of operation usage in BPMN files
 
 ### Visualizing Workflows
 
@@ -92,7 +131,25 @@ This will create `example1.png` in the current directory, showing:
 
 ## Workflow Functions
 
-The `workflow_functions.py` file contains all the functions that can be referenced in BPMN service tasks. Current functions include:
+The `workflow_functions.py` file contains all the functions that can be referenced in BPMN service tasks. Functions are decorated with `@bpmn_op` to declare:
+
+- Operation name
+- Input parameters and their types
+- Output parameters and their types
+
+Example:
+```python
+@bpmn_op(
+    name="identify_user_intent",
+    inputs={"input_text": str},
+    outputs={"intent": str}
+)
+def identify_user_intent(state):
+    # Function implementation
+    return {"intent": "qa"}
+```
+
+Current functions include:
 
 - `identify_user_intent`: Analyzes input and returns intent
 - `ask_user`: Clarifies the input query
@@ -107,18 +164,33 @@ The `workflow_functions.py` file contains all the functions that can be referenc
 
 1. Create a new directory under `examples/`
 2. Add your BPMN XML file
-3. Reference functions from `workflow_functions.py` in your service tasks
-4. Validate your workflow using `validate_workflow.py`
-5. Generate a visualization using `visualize_workflow.py`
-6. Run using the script as shown above
+3. Create workflow functions with `@bpmn_op` decorators
+4. Reference functions in service tasks with extension elements:
+```xml
+<serviceTask id="MyTask" camunda:expression="${my_function}">
+  <extensionElements>
+    <ext:operation name="my_function">
+      <ext:in name="input1"/>
+      <ext:out name="output1"/>
+    </ext:operation>
+  </extensionElements>
+</serviceTask>
+```
+5. Generate schema: `python generate_ext_schema.py`
+6. Validate workflow: `python validate_workflow.py`
+7. Generate visualization: `python visualize_workflow.py`
+8. Run using the script as shown above
 
 ## BPMN Support
 
 The tool supports the following BPMN elements:
-- Service Tasks
+- Service Tasks with extension elements
 - Exclusive Gateways
 - Start Events
 - End Events
 - Sequence Flows with conditions
 
-Service tasks should reference functions using the Camunda expression format: `${functionName}`
+Service tasks should:
+1. Reference functions using the Camunda expression format: `${functionName}`
+2. Declare operation parameters using extension elements
+3. Match the function's declared inputs and outputs

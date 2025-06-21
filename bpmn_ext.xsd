@@ -1,0 +1,56 @@
+<?xml version="1.0" ?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns="http://your-company.com/bpmn-ext" targetNamespace="http://your-company.com/bpmn-ext" elementFormDefault="qualified">
+  <xs:element name="operation">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="in" minOccurs="0" maxOccurs="unbounded" type="inType"/>
+        <xs:element name="out" minOccurs="0" maxOccurs="unbounded" type="outType"/>
+      </xs:sequence>
+      <xs:attribute name="name" use="required">
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="ask_user"/>
+            <xs:enumeration value="evaluate_relevance"/>
+            <xs:enumeration value="generate_answer"/>
+            <xs:enumeration value="identify_user_intent"/>
+            <xs:enumeration value="increment_counter"/>
+            <xs:enumeration value="rephrase_query"/>
+            <xs:enumeration value="retrieve_financial_documents"/>
+            <xs:enumeration value="summarize"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+  <xs:complexType name="inType">
+    <xs:attribute name="name" use="required">
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="chunks"/>
+          <xs:enumeration value="input_text"/>
+          <xs:enumeration value="new_query"/>
+          <xs:enumeration value="query"/>
+          <xs:enumeration value="question"/>
+          <xs:enumeration value="rephraseCount"/>
+          <xs:enumeration value="source"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+  </xs:complexType>
+  <xs:complexType name="outType">
+    <xs:attribute name="name" use="required">
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="answer"/>
+          <xs:enumeration value="chunks"/>
+          <xs:enumeration value="intent"/>
+          <xs:enumeration value="new_query"/>
+          <xs:enumeration value="query"/>
+          <xs:enumeration value="relevance"/>
+          <xs:enumeration value="rephraseCount"/>
+          <xs:enumeration value="summary"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+  </xs:complexType>
+</xs:schema>
