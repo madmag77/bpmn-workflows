@@ -1,0 +1,2 @@
+bpmn_python==0.0.18
+networkx==2.8
