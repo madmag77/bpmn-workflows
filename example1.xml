@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+             xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+             xmlns:omgdc="http://www.omg.org/spec/DD/20100524/DC"
+             xmlns:omgdi="http://www.omg.org/spec/DD/20100524/DI"
+             targetNamespace="http://example.com/definitions">
+  <process id="IntentQA" name="Intent-Driven QA" isExecutable="true">
+
+    <startEvent id="Start"/>
+
+    <serviceTask id="IdentifyIntent" name="Identify User Intent"
+                 camunda:expression="\${identify_user_intent(input_text)}"/>
+    <sequenceFlow id="flow1" sourceRef="Start" targetRef="IdentifyIntent"/>
+
+    <exclusiveGateway id="DecisionIntent"/>
+
+    <sequenceFlow id="flow2" sourceRef="IdentifyIntent" targetRef="DecisionIntent"/>
+
+    <sequenceFlow id="flow3" sourceRef="DecisionIntent" targetRef="Retrieve">
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[\${intent == 'qa'}]]></conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="flow4" sourceRef="DecisionIntent" targetRef="Summarize">
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[\${intent == 'summarization'}]]></conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="flow5" sourceRef="DecisionIntent" targetRef="AskUser" default="true"/>
+
+    <serviceTask id="AskUser" name="Ask User"
+                 camunda:expression="\${ask_user('Could you clarify your request?')}"/>
+    <sequenceFlow id="flow6" sourceRef="AskUser" targetRef="Retrieve"/>
+
+    <serviceTask id="Retrieve" name="Retrieve Chunks"
+                 camunda:expression="\${retrieve_financial_documents(query)}"/>
+    <sequenceFlow id="flow7" sourceRef="Retrieve" targetRef="EvaluateRelevance"/>
+
+    <serviceTask id="EvaluateRelevance" name="Evaluate Relevance"
+                 camunda:expression="\${evaluate_relevance(chunks)}"/>
+    <sequenceFlow id="flow8" sourceRef="EvaluateRelevance" targetRef="DecisionRelevance"/>
+
+    <exclusiveGateway id="DecisionRelevance"/>
+
+    <sequenceFlow id="flow9" sourceRef="DecisionRelevance" targetRef="Generate">
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[\${relevance == 'OK'}]]></conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="flow10" sourceRef="DecisionRelevance" targetRef="Rephrase">
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[\${relevance == 'BAD' && rephraseCount < 3}]]></conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="flow11" sourceRef="DecisionRelevance" targetRef="GenerateError" default="true"/>
+
+    <serviceTask id="Rephrase" name="Rephrase Query"
+                 camunda:expression="\${rephrase_query(query)}"/>
+    <sequenceFlow id="flow12" sourceRef="Rephrase" targetRef="IncrementCounter"/>
+
+    <scriptTask id="IncrementCounter" name="Increment Rephrase Count">
+      <script scriptFormat="groovy"><![CDATA[
+        rephraseCount = rephraseCount + 1;
+        query = new_query;
+      ]]></script>
+    </scriptTask>
+    <sequenceFlow id="flow13" sourceRef="IncrementCounter" targetRef="Retrieve"/>
+
+    <serviceTask id="Summarize" name="Summarize"
+                 camunda:expression="\${summarize(input_text)}"/>
+    <sequenceFlow id="flow14" sourceRef="Summarize" targetRef="Generate"/>
+
+    <serviceTask id="Generate" name="Generate Answer"
+                 camunda:expression="\${generate_answer(source)}"/>
+    <sequenceFlow id="flow15" sourceRef="Generate" targetRef="End"/>
+
+    <serviceTask id="GenerateError" name="Generate Error"
+                 camunda:expression="\${generate_answer('ERROR: no relevant chunks after retries')}"/>
+    <sequenceFlow id="flow16" sourceRef="GenerateError" targetRef="End"/>
+
+    <endEvent id="End"/>
+
+  </process>
+  <bpmndi:BPMNDiagram>
+    <!-- Diagram elements omitted for brevity -->
+  </bpmndi:BPMNDiagram>
+</definitions>
