@@ -38,7 +38,11 @@ def parse_bpmn(path: str):
     flows = []
     for sf in root.findall(".//bpmn:sequenceFlow", NS):
         cond_el = sf.find("bpmn:conditionExpression", NS)
-        cond_text = cond_el.text.strip() if cond_el is not None and cond_el.text else None
+        cond_text = None
+        if cond_el is not None and cond_el.text:
+            cond_text = cond_el.text.strip()
+            if cond_text.startswith("\\${"):
+                cond_text = cond_text[1:]
         flows.append({
             "source": sf.attrib["sourceRef"],
             "target": sf.attrib["targetRef"],
@@ -50,13 +54,17 @@ def parse_bpmn(path: str):
 
 # --- LangGraph Construction -------------------------------------------------
 
-def make_task(fn_name: str):
+def make_task(fn_name: str, fn_map: Dict[str, Any]):
+    """Wrap a function from *fn_map* so it can be used in the graph."""
+
     def task(state: Dict[str, Any]) -> Dict[str, Any]:
-        func = globals().get(fn_name)
-        if callable(func):
-            update = func(state) or {}
-            state.update(update)
+        func = fn_map.get(fn_name)
+        if not callable(func):
+            raise ValueError(f"Function '{fn_name}' not provided")
+        update = func(state) or {}
+        state.update(update)
         return state
+
     return task
 
 
@@ -82,16 +90,17 @@ def make_router(flows):
     return router
 
 
-def build_graph(xml_path: str):
+def build_graph(xml_path: str, functions: Dict[str, Any]):
     nodes, flows = parse_bpmn(xml_path)
     outgoing: Dict[str, list] = {}
     for fl in flows:
         outgoing.setdefault(fl["source"], []).append(fl)
 
+    fn_map = functions
     graph = StateGraph(dict)
     for node_id, info in nodes.items():
         if info["type"] == "serviceTask":
-            graph.add_node(node_id, make_task(info.get("fn")))
+            graph.add_node(node_id, make_task(info.get("fn"), fn_map))
         else:
             graph.add_node(node_id, lambda state: state)
 
@@ -128,7 +137,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     import workflow_functions  # Import all workflow functions
-    globals().update({k: getattr(workflow_functions, k) for k in dir(workflow_functions) if not k.startswith("_")})
+    fn_map = {
+        k: getattr(workflow_functions, k)
+        for k in dir(workflow_functions)
+        if not k.startswith("_")
+    }
 
     def parse_params(param_list):
         params = {}
@@ -147,7 +160,7 @@ if __name__ == "__main__":
             params[k] = v
         return params
 
-    app = build_graph(args.workflow_path)
+    app = build_graph(args.workflow_path, functions=fn_map)
     input_kwargs = parse_params(args.param)
     result = app.invoke(input_kwargs)
     print(result)
