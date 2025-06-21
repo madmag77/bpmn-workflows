@@ -2,49 +2,10 @@ from __future__ import annotations
 import re
 import xml.etree.ElementTree as ET
 from typing import Dict, Any
+import argparse
 
 from bpmn_workflows import compat  # noqa: F401
 from langgraph.graph import StateGraph, END
-
-# --- Stub functions used by the example workflow ---
-
-def identify_user_intent(state: Dict[str, Any]) -> Dict[str, Any]:
-    """Pretend to analyse the input and return the intent."""
-    # For testing return 'qa' always
-    return {"intent": "qa"}
-
-
-def ask_user(state: Dict[str, Any]) -> Dict[str, Any]:
-    return {"query": "clarified " + state.get("input_text", "")}
-
-
-def retrieve_financial_documents(state: Dict[str, Any]) -> Dict[str, Any]:
-    query = state.get("query", "<none>")
-    return {"chunks": [f"chunk for {query}"]}
-
-
-def evaluate_relevance(state: Dict[str, Any]) -> Dict[str, Any]:
-    return {"relevance": "OK"}
-
-
-def rephrase_query(state: Dict[str, Any]) -> Dict[str, Any]:
-    query = state.get("query", "")
-    return {"new_query": query + " rephrased"}
-
-
-def increment_counter(state: Dict[str, Any]) -> Dict[str, Any]:
-    return {"rephraseCount": state.get("rephraseCount", 0) + 1,
-            "query": state.get("new_query")}
-
-
-def summarize(state: Dict[str, Any]) -> Dict[str, Any]:
-    return {"summary": "summary of " + state.get("input_text", "")}
-
-
-def generate_answer(state: Dict[str, Any]) -> Dict[str, Any]:
-    source = state.get("summary") or state.get("chunks")
-    return {"answer": f"Answer based on {source}"}
-
 
 # --- BPMN Parsing -----------------------------------------------------------
 
@@ -158,6 +119,35 @@ def build_graph(xml_path: str):
 
 
 if __name__ == "__main__":
-    app = build_graph("examples/example_1/example1.xml")
-    result = app.invoke({"input_text": "hello", "rephraseCount": 0})
+    parser = argparse.ArgumentParser(description="Run a BPMN workflow.")
+    parser.add_argument("workflow_path", type=str, help="Path to the workflow XML file")
+    parser.add_argument(
+        "--param", action="append", default=[],
+        help="Workflow input parameter in key=value format. Can be used multiple times."
+    )
+    args = parser.parse_args()
+
+    import workflow_functions  # Import all workflow functions
+    globals().update({k: getattr(workflow_functions, k) for k in dir(workflow_functions) if not k.startswith("_")})
+
+    def parse_params(param_list):
+        params = {}
+        for p in param_list:
+            if "=" not in p:
+                raise ValueError(f"Invalid param: {p}. Must be key=value.")
+            k, v = p.split("=", 1)
+            # Try to convert to int or float if possible
+            if v.isdigit():
+                v = int(v)
+            else:
+                try:
+                    v = float(v)
+                except ValueError:
+                    pass
+            params[k] = v
+        return params
+
+    app = build_graph(args.workflow_path)
+    input_kwargs = parse_params(args.param)
+    result = app.invoke(input_kwargs)
     print(result)
