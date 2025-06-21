@@ -19,6 +19,7 @@ python validate_example.py example1.xml
 Generate a PNG visualisation (the image is not tracked in the repository):
 
 ```bash
+brew install graphviz
 python visualize_example.py example1.xml example1
 ```
 The image will be saved as `example1.png` in the current directory.

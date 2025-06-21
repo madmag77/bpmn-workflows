@@ -1,5 +1,6 @@
 from bpmn_workflows import compat  # noqa: F401  # apply networkx compatibility
 from bpmn_python.bpmn_diagram_rep import BpmnDiagramGraph
+import argparse
 
 
 def validate_bpmn(path: str) -> bool:
@@ -13,9 +14,11 @@ def validate_bpmn(path: str) -> bool:
 
 
 if __name__ == "__main__":
-    import sys
-    xml_path = sys.argv[1] if len(sys.argv) > 1 else "example1.xml"
-    if validate_bpmn(xml_path):
+    parser = argparse.ArgumentParser(description='Validate a BPMN XML file.')
+    parser.add_argument('xml_path', help='Path to the BPMN XML file to validate')
+    args = parser.parse_args()
+
+    if validate_bpmn(args.xml_path):
         print("BPMN file is valid for bpmn_python")
     else:
         print("BPMN file failed validation")
