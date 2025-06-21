@@ -5,13 +5,22 @@
              xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
              xmlns:omgdc="http://www.omg.org/spec/DD/20100524/DC"
              xmlns:omgdi="http://www.omg.org/spec/DD/20100524/DI"
+             xmlns:ext="http://your-company.com/bpmn-ext"
+             xsi:schemaLocation="http://your-company.com/bpmn-ext bpmn_ext.xsd"
              targetNamespace="http://example.com/definitions">
   <process id="IntentQA" name="Intent-Driven QA" isExecutable="true">
 
     <startEvent id="Start"/>
 
     <serviceTask id="IdentifyIntent" name="Identify User Intent"
-                 camunda:expression="\${identify_user_intent(input_text)}"/>
+                 camunda:expression="\${identify_user_intent(input_text)}" implementation="##unspecified">
+      <extensionElements>
+        <ext:operation xmlns:ext="http://your-company.com/bpmn-ext" name="identify_user_intent">
+          <ext:in name="input_text"/>
+          <ext:out name="intent"/>
+        </ext:operation>
+      </extensionElements>
+    </serviceTask>
     <sequenceFlow id="flow1" sourceRef="Start" targetRef="IdentifyIntent"/>
 
     <exclusiveGateway id="DecisionIntent"/>
@@ -31,11 +40,25 @@
     <sequenceFlow id="flow6" sourceRef="AskUser" targetRef="Retrieve"/>
 
     <serviceTask id="Retrieve" name="Retrieve Chunks"
-                 camunda:expression="\${retrieve_financial_documents(query)}"/>
+                 camunda:expression="\${retrieve_financial_documents(query)}" implementation="##unspecified">
+      <extensionElements>
+        <ext:operation xmlns:ext="http://your-company.com/bpmn-ext" name="retrieve_financial_documents">
+          <ext:in name="query"/>
+          <ext:out name="chunks"/>
+        </ext:operation>
+      </extensionElements>
+    </serviceTask>
     <sequenceFlow id="flow7" sourceRef="Retrieve" targetRef="EvaluateRelevance"/>
 
     <serviceTask id="EvaluateRelevance" name="Evaluate Relevance"
-                 camunda:expression="\${evaluate_relevance(chunks)}"/>
+                 camunda:expression="\${evaluate_relevance(chunks)}" implementation="##unspecified">
+      <extensionElements>
+        <ext:operation xmlns:ext="http://your-company.com/bpmn-ext" name="evaluate_relevance">
+          <ext:in name="chunks"/>
+          <ext:out name="relevance"/>
+        </ext:operation>
+      </extensionElements>
+    </serviceTask>
     <sequenceFlow id="flow8" sourceRef="EvaluateRelevance" targetRef="DecisionRelevance"/>
 
     <exclusiveGateway id="DecisionRelevance"/>
@@ -61,7 +84,14 @@
     <sequenceFlow id="flow14" sourceRef="Summarize" targetRef="Generate"/>
 
     <serviceTask id="Generate" name="Generate Answer"
-                 camunda:expression="\${generate_answer(source)}"/>
+                 camunda:expression="\${generate_answer(source)}" implementation="##unspecified">
+      <extensionElements>
+        <ext:operation xmlns:ext="http://your-company.com/bpmn-ext" name="generate_answer">
+          <ext:in name="source"/>
+          <ext:out name="answer"/>
+        </ext:operation>
+      </extensionElements>
+    </serviceTask>
     <sequenceFlow id="flow15" sourceRef="Generate" targetRef="End"/>
 
     <serviceTask id="GenerateError" name="Generate Error"
