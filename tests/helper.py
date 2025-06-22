@@ -9,6 +9,7 @@ def run_workflow(
     checkpointer=None,
     thread_id="test",
     interrupt_after=None,
+    recursion_limit=100,
 ):
     fn_map = {
         name: getattr(wf, name)
@@ -21,7 +22,7 @@ def run_workflow(
     input_kwargs = {"input_text": "hello", "rephraseCount": 0}
     if params:
         input_kwargs.update(params)
-    config = {"configurable": {"thread_id": thread_id}}
+    config = {"configurable": {"thread_id": thread_id}, "recursion_limit": recursion_limit}
     return app.invoke(
         input_kwargs,
         config,
