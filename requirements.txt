@@ -1,5 +1,5 @@
-bpmn_python==0.0.18
-networkx==2.8
+bpmn_python
+networkx
 
 langgraph>=0.4
 langgraph-checkpoint-postgres
