@@ -1,0 +1,8 @@
+analyse_user_query: |
+  You are a helpful research assistant. Analyse the following user query: "{query}".
+  Determine whether additional clarification is needed.
+  Provide an improved version of the query that would work well for searching the web.
+  If clarification is required, suggest concise questions for the user.
+  Respond in JSON with two keys:
+    extended_query: revised query text
+    questions: list of questions, leave empty if none are needed

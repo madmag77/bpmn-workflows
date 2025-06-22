@@ -13,3 +13,5 @@ wheel
 twine
 pre-commit
 ruff
+llama-index
+llama-index-llms-ollama
