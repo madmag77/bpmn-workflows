@@ -22,3 +22,38 @@ def test_deepresearch_loop():
     result = run_workflow(XML_PATH, fn_overrides=overrides, params={"query": "hello"})
     assert result.get("final_answer")
     assert result.get("iteration", 0) == 2
+
+
+def test_deepresearch_max_iterations():
+    calls = {k: 0 for k in [
+        "query_extender",
+        "retrieve_from_web",
+        "process_info",
+        "answer_validate",
+    ]}
+
+    overrides = dict(FN_MAP)
+
+    def wrap(name):
+        orig = getattr(drf, name)
+
+        def wrapper(state):
+            calls[name] += 1
+            return orig(state)
+
+        return wrapper
+
+    for step in ["query_extender", "retrieve_from_web", "process_info"]:
+        overrides[step] = wrap(step)
+
+    def always_bad(state):
+        calls["answer_validate"] += 1
+        return {"is_enough": "BAD", "next_query": "next"}
+
+    overrides["answer_validate"] = always_bad
+
+    result = run_workflow(XML_PATH, fn_overrides=overrides, params={"query": "hello"})
+    assert result.get("final_answer")
+    assert result.get("iteration", 0) == 10
+    for step in calls:
+        assert calls[step] == 10
