@@ -1,8 +1,13 @@
 import uuid
+import shutil
 import psycopg
 import testing.postgresql
 from langgraph.checkpoint.postgres import PostgresSaver
 from .helper import run_workflow
+import pytest
+
+if not shutil.which("initdb"):
+    pytest.skip("PostgreSQL binaries not available", allow_module_level=True)
 
 XML_PATH = "workflows/example_1/example1.xml"
 

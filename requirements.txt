@@ -11,3 +11,5 @@ testing.postgresql
 setuptools
 wheel
 twine
+pre-commit
+ruff
