@@ -21,7 +21,13 @@ A Python-based tool for executing BPMN workflows using LangGraph. This tool allo
 pip install -r requirements.txt
 ```
 
-3. For visualization support, install Graphviz:
+Install postgres for storing checkpoints
+```bash
+brew install postgresql@15
+echo 'export PATH="/opt/homebrew/opt/postgresql@15/bin:$PATH"' >> ~/.zshrc
+```
+
+1. For visualization support, install Graphviz:
 ```bash
 brew install graphviz  # On macOS
 # or

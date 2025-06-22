@@ -5,3 +5,9 @@ langgraph>=0.4
 langgraph-checkpoint-postgres
 psycopg[binary]
 xmlschema
+pytest
+testing.postgresql
+
+setuptools
+wheel
+twine
