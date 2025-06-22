@@ -34,6 +34,30 @@ brew install graphviz  # On macOS
 sudo apt-get install graphviz  # On Ubuntu/Debian
 ```
 
+## Pre-commit Hooks
+
+This project uses pre-commit hooks to ensure code quality. To set up pre-commit:
+
+1. Install pre-commit:
+```bash
+pip install pre-commit
+```
+
+2. Install the pre-commit hooks:
+```bash
+pre-commit install
+```
+
+The following hooks are configured:
+- Ruff: Python linter for fast code quality checks
+  - Line length: 120 characters
+  - Selected rules: E (pycodestyle errors), F (pyflakes)
+
+To run the hooks manually:
+```bash
+pre-commit run --all-files
+```
+
 ## Usage
 
 ### Running Workflows
