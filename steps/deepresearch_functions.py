@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 from llama_index.llms.ollama import Ollama
 from llama_index.core.llms import ChatMessage
 from bpmn_ext.bpmn_ext import bpmn_op
+from langgraph.types import interrupt
 
 PROMPT_PATH = Path(__file__).resolve().parent.parent / "prompts" / "deepresearch.yaml"
 
@@ -53,7 +54,9 @@ def analyse_user_query(state: Dict[str, Any]) -> Dict[str, Any]:
     outputs={"clarifications": str},
 )
 def ask_questions(state: Dict[str, Any]) -> Dict[str, Any]:
-    return {"clarifications": "clarified"}
+    questions = state.get("questions", [])
+    answer = interrupt({"questions": questions})
+    return {"clarifications": answer}
 
 @bpmn_op(
     name="query_extender",
