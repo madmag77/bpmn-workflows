@@ -90,7 +90,11 @@ def make_router(flows):
     return router
 
 
-def build_graph(xml_path: str, functions: Dict[str, Any]):
+def build_graph(
+    xml_path: str,
+    functions: Dict[str, Any],
+    checkpointer: Any | None = None,
+):
     nodes, flows = parse_bpmn(xml_path)
     outgoing: Dict[str, list] = {}
     for fl in flows:
@@ -124,7 +128,7 @@ def build_graph(xml_path: str, functions: Dict[str, Any]):
         raise ValueError("Workflow must have start and end events")
     graph.set_entry_point(starts[0])
     graph.set_finish_point(ends[0])
-    return graph.compile()
+    return graph.compile(checkpointer=checkpointer)
 
 
 if __name__ == "__main__":
