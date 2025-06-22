@@ -75,7 +75,7 @@ To create new tests:
 Before running a workflow, you can validate the BPMN XML file:
 
 ```bash
-python validate_workflow.py workflows/example_1/example1.xml
+python validate_workflow.py workflows/example_1/example1.xml --functions steps.example_functions
 ```
 
 This will check:
@@ -83,22 +83,30 @@ This will check:
 - BPMN schema compliance
 - Presence of required elements
 - Referenced function availability
-- Extension elements against generated schema
+- Extension elements against generated schema (generated near the XML file)
 - Operation input/output parameters
+
+The `--functions` parameter specifies the Python module containing your workflow functions. This allows you to have different sets of workflow functions for different BPMN files, each with their own schema extensions.
 
 ### Generating Extension Schema
 
-Generate the BPMN extension schema from decorated workflow functions:
+The extension schema is automatically generated during validation. The schema file (`bpmn_ext.xsd`) is created in the same directory as your BPMN XML file. This means:
 
+- Each BPMN workflow can have its own extension schema
+- The schema is generated from the specified functions module
+- Multiple workflows can use different function sets
+- Schema location makes it easier to package and distribute workflows
+
+For example:
 ```bash
-python bpmp_ext/generate_ext_schema.py
+python validate_workflow.py workflows/workflow1/process.xml --functions steps.functions1
+# Generates workflows/workflow1/bpmn_ext.xsd
+
+python validate_workflow.py workflows/workflow2/process.xml --functions steps.functions2
+# Generates workflows/workflow2/bpmn_ext.xsd
 ```
 
-This will:
-- Scan `steps/example_functions.py` for functions decorated with `@bpmn_op`
-- Extract operation names and input/output parameters
-- Generate `bpmn_ext.xsd` schema file
-- Enable validation of operation usage in BPMN files
+Each generated schema will contain only the operations defined in its respective functions module.
 
 ### Visualizing Workflows
 
