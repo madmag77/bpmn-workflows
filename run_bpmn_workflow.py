@@ -140,10 +140,10 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    import workflow_functions  # Import all workflow functions
+    import steps.example_functions as example_functions  # Import all workflow functions
     fn_map = {
-        k: getattr(workflow_functions, k)
-        for k in dir(workflow_functions)
+        k: getattr(example_functions, k)
+        for k in dir(example_functions)
         if not k.startswith("_")
     }
 

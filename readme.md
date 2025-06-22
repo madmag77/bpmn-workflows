@@ -5,12 +5,12 @@ A Python-based tool for executing BPMN workflows using LangGraph. This tool allo
 ## Structure
 
 - `run_bpmn_workflow.py` - The main script for parsing and executing BPMN workflows
-- `workflow_functions.py` - Collection of workflow functions that can be used in BPMN tasks
+- `steps/example_functions.py` - Collection of workflow functions that can be used in BPMN tasks
 - `validate_workflow.py` - Script to validate BPMN XML files
 - `visualize_workflow.py` - Script to generate visual diagrams of workflows
 - `generate_ext_schema.py` - Script to generate BPMN extension schema from decorated functions
 - `bpmn_ext.py` - Module for BPMN extension support and operation decorators
-- `examples/` - Directory containing example workflows
+- `workflows/` - Directory containing workflows
   - `example_1/` - Example workflow with QA processing logic
 
 ## Setup
@@ -46,7 +46,7 @@ python run_bpmn_workflow.py <path_to_bpmn_xml> --param key1=value1 --param key2=
 
 Example:
 ```bash
-python run_bpmn_workflow.py examples/example_1/example1.xml --param input_text=hello --param rephraseCount=0
+python run_bpmn_workflow.py workflows/example_1/example1.xml --param input_text=hello --param rephraseCount=0
 ```
 
 ### Testing Workflows
@@ -75,7 +75,7 @@ To create new tests:
 Before running a workflow, you can validate the BPMN XML file:
 
 ```bash
-python validate_workflow.py examples/example_1/example1.xml
+python validate_workflow.py workflows/example_1/example1.xml
 ```
 
 This will check:
@@ -91,11 +91,11 @@ This will check:
 Generate the BPMN extension schema from decorated workflow functions:
 
 ```bash
-python generate_ext_schema.py
+python bpmp_ext/generate_ext_schema.py
 ```
 
 This will:
-- Scan `workflow_functions.py` for functions decorated with `@bpmn_op`
+- Scan `steps/example_functions.py` for functions decorated with `@bpmn_op`
 - Extract operation names and input/output parameters
 - Generate `bpmn_ext.xsd` schema file
 - Enable validation of operation usage in BPMN files
@@ -105,7 +105,7 @@ This will:
 Generate a PNG visualization of your workflow:
 
 ```bash
-python visualize_workflow.py examples/example_1/example1.xml example1
+python visualize_workflow.py workflows/example_1/example1.xml example1
 ```
 
 This will create `example1.png` in the current directory, showing:
@@ -137,7 +137,7 @@ This will create `example1.png` in the current directory, showing:
 
 ## Workflow Functions
 
-The `workflow_functions.py` file contains all the functions that can be referenced in BPMN service tasks. Functions are decorated with `@bpmn_op` to declare:
+The `steps/example_functions.py` file contains all the functions that can be referenced in BPMN service tasks. Functions are decorated with `@bpmn_op` to declare:
 
 - Operation name
 - Input parameters and their types
@@ -168,7 +168,7 @@ Current functions include:
 
 ## Creating New Workflows
 
-1. Create a new directory under `examples/`
+1. Create a new directory under `workflows/`
 2. Add your BPMN XML file
 3. Create workflow functions with `@bpmn_op` decorators
 4. Reference functions in service tasks with extension elements:

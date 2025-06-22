@@ -3,8 +3,8 @@ import importlib
 from pathlib import Path
 from bpmn_ext import collect_operations, generate_xsd
 
-MODULE = 'workflow_functions'
-OUTPUT = Path('bpmn_ext.xsd')
+MODULE = 'steps.example_functions'
+OUTPUT = Path('bpmn_ext/bpmn_ext.xsd')
 
 if __name__ == '__main__':
     mod = importlib.import_module(MODULE)

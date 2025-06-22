@@ -1,5 +1,5 @@
 import run_bpmn_workflow as runner
-import workflow_functions as wf
+import steps.example_functions as wf
 
 def run_workflow(
     xml_path: str,

@@ -6,7 +6,7 @@
              xmlns:omgdc="http://www.omg.org/spec/DD/20100524/DC"
              xmlns:omgdi="http://www.omg.org/spec/DD/20100524/DI"
              xmlns:ext="http://your-company.com/bpmn-ext"
-             xsi:schemaLocation="http://your-company.com/bpmn-ext bpmn_ext.xsd"
+             xsi:schemaLocation="http://your-company.com/bpmn-ext bpmn_ext/bpmn_ext.xsd"
              targetNamespace="http://example.com/definitions">
   <process id="IntentQA" name="Intent-Driven QA" isExecutable="true">
 

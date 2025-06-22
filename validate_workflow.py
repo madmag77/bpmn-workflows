@@ -6,7 +6,7 @@ import argparse
 import xmlschema
 import xml.etree.ElementTree as ET
 
-from bpmn_ext import collect_operations, generate_xsd, validate_operations, EXT_NS
+from bpmn_ext.bpmn_ext import collect_operations, generate_xsd, validate_operations, EXT_NS
 
 
 def validate_bpmn(path: str) -> bool:
@@ -18,9 +18,9 @@ def validate_bpmn(path: str) -> bool:
     print(f"Loaded {len(nodes)} nodes and {len(flows)} flows")
 
     # generate extension schema from decorated functions
-    mod = importlib.import_module("workflow_functions")
+    mod = importlib.import_module("steps.example_functions")
     ops = collect_operations(mod)
-    ext_path = Path("bpmn_ext.xsd")
+    ext_path = Path("bpmn_ext/bpmn_ext.xsd")
     ext_path.write_text(generate_xsd(ops))
 
     # validate extension elements against generated schema
