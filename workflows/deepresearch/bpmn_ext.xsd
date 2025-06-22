@@ -1,0 +1,55 @@
+<?xml version="1.0" ?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns="http://your-company.com/bpmn-ext" targetNamespace="http://your-company.com/bpmn-ext" elementFormDefault="qualified">
+  <xs:element name="operation">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="in" minOccurs="0" maxOccurs="unbounded" type="inType"/>
+        <xs:element name="out" minOccurs="0" maxOccurs="unbounded" type="outType"/>
+      </xs:sequence>
+      <xs:attribute name="name" use="required">
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="analyse_user_query"/>
+            <xs:enumeration value="answer_validate"/>
+            <xs:enumeration value="ask_questions"/>
+            <xs:enumeration value="final_answer_generation"/>
+            <xs:enumeration value="process_info"/>
+            <xs:enumeration value="query_extender"/>
+            <xs:enumeration value="retrieve_from_web"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+  <xs:complexType name="inType">
+    <xs:attribute name="name" use="required">
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="answer_draft"/>
+          <xs:enumeration value="chunks"/>
+          <xs:enumeration value="clarifications"/>
+          <xs:enumeration value="extended_query"/>
+          <xs:enumeration value="next_query"/>
+          <xs:enumeration value="query"/>
+          <xs:enumeration value="questions"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+  </xs:complexType>
+  <xs:complexType name="outType">
+    <xs:attribute name="name" use="required">
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="answer_draft"/>
+          <xs:enumeration value="chunks"/>
+          <xs:enumeration value="clarifications"/>
+          <xs:enumeration value="extended_query"/>
+          <xs:enumeration value="final_answer"/>
+          <xs:enumeration value="is_enough"/>
+          <xs:enumeration value="next_query"/>
+          <xs:enumeration value="questions"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+  </xs:complexType>
+</xs:schema>

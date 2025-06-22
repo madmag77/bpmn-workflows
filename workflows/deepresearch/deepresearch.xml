@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+             xmlns:ext="http://your-company.com/bpmn-ext"
+             xsi:schemaLocation="http://your-company.com/bpmn-ext bpmn_ext.xsd"
+             targetNamespace="http://example.com/deepresearch">
+  <process id="DeepResearch" isExecutable="true">
+    <startEvent id="Start"/>
+
+    <serviceTask id="AnalyseQuery" name="Analyse Query"
+                 camunda:expression="${analyse_user_query(query)}">
+      <extensionElements>
+        <ext:operation name="analyse_user_query">
+          <ext:in name="query"/>
+          <ext:out name="extended_query"/>
+          <ext:out name="questions"/>
+        </ext:operation>
+      </extensionElements>
+    </serviceTask>
+    <sequenceFlow id="flow1" sourceRef="Start" targetRef="AnalyseQuery"/>
+
+    <exclusiveGateway id="NeedClarification"/>
+    <sequenceFlow id="flow2" sourceRef="AnalyseQuery" targetRef="NeedClarification"/>
+    <sequenceFlow id="flow3" sourceRef="NeedClarification" targetRef="AskUser">
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[${questions}]]></conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="flow4" sourceRef="NeedClarification" targetRef="QueryExtender" default="true"/>
+
+    <serviceTask id="AskUser" name="Ask User Questions"
+                 camunda:expression="${ask_questions(questions)}">
+      <extensionElements>
+        <ext:operation name="ask_questions">
+          <ext:in name="questions"/>
+          <ext:out name="clarifications"/>
+        </ext:operation>
+      </extensionElements>
+    </serviceTask>
+    <sequenceFlow id="flow5" sourceRef="AskUser" targetRef="QueryExtender"/>
+
+    <serviceTask id="QueryExtender" name="Query Extender"
+                 camunda:expression="${query_extender(query, clarifications, next_query)}">
+      <extensionElements>
+        <ext:operation name="query_extender">
+          <ext:in name="query"/>
+          <ext:in name="clarifications"/>
+          <ext:in name="next_query"/>
+          <ext:out name="extended_query"/>
+        </ext:operation>
+      </extensionElements>
+    </serviceTask>
+    <sequenceFlow id="flow6" sourceRef="QueryExtender" targetRef="Retrieve"/>
+
+    <serviceTask id="Retrieve" name="Retrieve"
+                 camunda:expression="${retrieve_from_web(extended_query)}">
+      <extensionElements>
+        <ext:operation name="retrieve_from_web">
+          <ext:in name="extended_query"/>
+          <ext:out name="chunks"/>
+        </ext:operation>
+      </extensionElements>
+    </serviceTask>
+    <sequenceFlow id="flow7" sourceRef="Retrieve" targetRef="ProcessInfo"/>
+
+    <serviceTask id="ProcessInfo" name="Process Info"
+                 camunda:expression="${process_info(query, chunks, answer_draft)}">
+      <extensionElements>
+        <ext:operation name="process_info">
+          <ext:in name="query"/>
+          <ext:in name="chunks"/>
+          <ext:in name="answer_draft"/>
+          <ext:out name="answer_draft"/>
+        </ext:operation>
+      </extensionElements>
+    </serviceTask>
+    <sequenceFlow id="flow8" sourceRef="ProcessInfo" targetRef="AnswerValidate"/>
+
+    <serviceTask id="AnswerValidate" name="Answer Validate"
+                 camunda:expression="${answer_validate(answer_draft)}">
+      <extensionElements>
+        <ext:operation name="answer_validate">
+          <ext:in name="answer_draft"/>
+          <ext:out name="is_enough"/>
+          <ext:out name="next_query"/>
+        </ext:operation>
+      </extensionElements>
+    </serviceTask>
+    <sequenceFlow id="flow9" sourceRef="AnswerValidate" targetRef="DecisionValidate"/>
+
+    <exclusiveGateway id="DecisionValidate"/>
+    <sequenceFlow id="flow10" sourceRef="DecisionValidate" targetRef="FinalAnswer">
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[${is_enough == 'GOOD' or iteration >= 10}]]></conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="flow11" sourceRef="DecisionValidate" targetRef="QueryExtender" default="true"/>
+
+    <serviceTask id="FinalAnswer" name="Final Answer"
+                 camunda:expression="${final_answer_generation(query, answer_draft)}">
+      <extensionElements>
+        <ext:operation name="final_answer_generation">
+          <ext:in name="query"/>
+          <ext:in name="answer_draft"/>
+          <ext:out name="final_answer"/>
+        </ext:operation>
+      </extensionElements>
+    </serviceTask>
+    <sequenceFlow id="flow12" sourceRef="FinalAnswer" targetRef="End"/>
+
+    <endEvent id="End"/>
+  </process>
+  <bpmndi:BPMNDiagram id="Diagram_1" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:omgdc="http://www.omg.org/spec/DD/20100524/DC" xmlns:omgdi="http://www.omg.org/spec/DD/20100524/DI">
+    <bpmndi:BPMNPlane id="Plane_1" bpmnElement="DeepResearch">
+      <bpmndi:BPMNShape id="Start_di" bpmnElement="Start">
+        <omgdc:Bounds x="100" y="100" width="36" height="36"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Analyse_di" bpmnElement="AnalyseQuery">
+        <omgdc:Bounds x="200" y="80" width="100" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="NeedClarification_di" bpmnElement="NeedClarification">
+        <omgdc:Bounds x="350" y="95" width="50" height="50"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="AskUser_di" bpmnElement="AskUser">
+        <omgdc:Bounds x="350" y="200" width="100" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="QueryExtender_di" bpmnElement="QueryExtender">
+        <omgdc:Bounds x="500" y="80" width="100" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Retrieve_di" bpmnElement="Retrieve">
+        <omgdc:Bounds x="650" y="80" width="100" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ProcessInfo_di" bpmnElement="ProcessInfo">
+        <omgdc:Bounds x="800" y="80" width="100" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="AnswerValidate_di" bpmnElement="AnswerValidate">
+        <omgdc:Bounds x="950" y="80" width="100" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DecisionValidate_di" bpmnElement="DecisionValidate">
+        <omgdc:Bounds x="1100" y="95" width="50" height="50"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="FinalAnswer_di" bpmnElement="FinalAnswer">
+        <omgdc:Bounds x="1250" y="80" width="100" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_di" bpmnElement="End">
+        <omgdc:Bounds x="1400" y="100" width="36" height="36"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="flow1_di" bpmnElement="flow1"><omgdi:waypoint x="136" y="118"/><omgdi:waypoint x="200" y="118"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow2_di" bpmnElement="flow2"><omgdi:waypoint x="300" y="118"/><omgdi:waypoint x="350" y="118"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow3_di" bpmnElement="flow3"><omgdi:waypoint x="375" y="118"/><omgdi:waypoint x="350" y="240"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow4_di" bpmnElement="flow4"><omgdi:waypoint x="375" y="118"/><omgdi:waypoint x="500" y="118"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow5_di" bpmnElement="flow5"><omgdi:waypoint x="450" y="240"/><omgdi:waypoint x="500" y="118"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow6_di" bpmnElement="flow6"><omgdi:waypoint x="600" y="118"/><omgdi:waypoint x="650" y="118"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow7_di" bpmnElement="flow7"><omgdi:waypoint x="750" y="118"/><omgdi:waypoint x="800" y="118"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow8_di" bpmnElement="flow8"><omgdi:waypoint x="900" y="118"/><omgdi:waypoint x="950" y="118"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow9_di" bpmnElement="flow9"><omgdi:waypoint x="1050" y="118"/><omgdi:waypoint x="1100" y="118"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow10_di" bpmnElement="flow10"><omgdi:waypoint x="1125" y="118"/><omgdi:waypoint x="1250" y="118"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow11_di" bpmnElement="flow11"><omgdi:waypoint x="1125" y="118"/><omgdi:waypoint x="500" y="118"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow12_di" bpmnElement="flow12"><omgdi:waypoint x="1350" y="118"/><omgdi:waypoint x="1400" y="118"/></bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</definitions>
