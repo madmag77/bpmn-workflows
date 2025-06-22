@@ -1,5 +1,29 @@
 from typing import Dict, Any
+from pathlib import Path
+from functools import lru_cache
+import yaml
+from pydantic import BaseModel, Field
+from llama_index.llms.ollama import Ollama
+from llama_index.core.llms import ChatMessage
 from bpmn_ext.bpmn_ext import bpmn_op
+
+PROMPT_PATH = Path(__file__).resolve().parent.parent / "prompts" / "deepresearch.yaml"
+
+
+class QueryAnalysis(BaseModel):
+    extended_query: str = Field(..., description="Revised query for retrieval")
+    questions: list[str] = Field(default_factory=list, description="Clarification questions")
+
+
+@lru_cache()
+def _load_prompts() -> dict:
+    return yaml.safe_load(PROMPT_PATH.read_text())
+
+
+@lru_cache()
+def _structured_llm():
+    llm = Ollama(model="gemma3:27b")
+    return llm.as_structured_llm(output_cls=QueryAnalysis)
 
 @bpmn_op(
     name="analyse_user_query",
@@ -8,10 +32,20 @@ from bpmn_ext.bpmn_ext import bpmn_op
 )
 def analyse_user_query(state: Dict[str, Any]) -> Dict[str, Any]:
     """Analyse the user query and decide if clarification is needed."""
-    return {
-        "extended_query": f"{state.get('query', '')} extended",
-        "questions": [],
-    }
+    query = state.get("query", "")
+    prompts = _load_prompts()
+    llm = _structured_llm()
+    input_msg = ChatMessage.from_str(
+        prompts["analyse_user_query"].format(query=query)
+    )
+    try:
+        response = llm.chat([input_msg])
+        return response.raw.model_dump()
+    except Exception:
+        return {
+            "extended_query": f"{query} extended",
+            "questions": [],
+        }
 
 @bpmn_op(
     name="ask_questions",
