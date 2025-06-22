@@ -1,5 +1,4 @@
 from pathlib import Path
-import importlib
 from bpmn_workflows import compat  # noqa: F401  # apply networkx compatibility
 from bpmn_python.bpmn_diagram_rep import BpmnDiagramGraph
 import argparse
@@ -7,7 +6,7 @@ import xmlschema
 import xml.etree.ElementTree as ET
 from bpmn_ext.generate_ext_schema import generate_ext_schema
 
-from bpmn_ext.bpmn_ext import collect_operations, generate_xsd, validate_operations, EXT_NS
+from bpmn_ext.bpmn_ext import EXT_NS
 
 
 def validate_bpmn(path: str, functions_module: str) -> bool:

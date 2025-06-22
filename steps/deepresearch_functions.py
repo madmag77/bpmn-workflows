@@ -1,4 +1,4 @@
-from typing import Dict, Any, List
+from typing import Dict, Any
 from bpmn_ext.bpmn_ext import bpmn_op
 
 @bpmn_op(

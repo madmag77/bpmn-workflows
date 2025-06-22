@@ -5,7 +5,7 @@ from typing import Dict, Any
 import argparse
 
 from bpmn_workflows import compat  # noqa: F401
-from langgraph.graph import StateGraph, END
+from langgraph.graph import StateGraph
 
 # --- BPMN Parsing -----------------------------------------------------------
 

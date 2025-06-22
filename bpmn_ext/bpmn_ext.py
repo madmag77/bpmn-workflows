@@ -6,7 +6,11 @@ from typing import Any, Callable, Dict, Iterable, List
 EXT_NS = "http://your-company.com/bpmn-ext"
 
 
-def bpmn_op(name: str, inputs: Dict[str, type] | None = None, outputs: Dict[str, type] | None = None):
+def bpmn_op(
+    name: str,
+    inputs: Dict[str, type] | None = None,
+    outputs: Dict[str, type] | None = None
+):
     """Decorator to mark a function as a BPMN operation."""
 
     def decorator(func: Callable):
