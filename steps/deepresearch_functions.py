@@ -64,7 +64,6 @@ def ask_questions(state: Dict[str, Any]) -> Dict[str, Any]:
     outputs={"extended_query": str},
 )
 def query_extender(state: Dict[str, Any]) -> Dict[str, Any]:
-    state["iteration"] = state.get("iteration", 0) + 1
     return {"extended_query": state.get("next_query") or state.get("query", "")}
 
 @bpmn_op(
