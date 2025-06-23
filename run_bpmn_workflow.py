@@ -1,7 +1,7 @@
 from __future__ import annotations
 import re
 import xml.etree.ElementTree as ET
-from typing import Dict, Any
+from typing import Dict, Any, Tuple, Set
 import argparse
 import json
 from langgraph.types import Command
@@ -18,9 +18,21 @@ NS = {
 
 
 def parse_bpmn(path: str):
-    """Parse BPMN XML returning nodes and flows."""
+    """Parse BPMN XML returning nodes, flows and loop metadata."""
     tree = ET.parse(path)
     root = tree.getroot()
+
+    loops: Dict[str, int] = {}
+    node_to_sp: Dict[str, str] = {}
+    for sp in root.findall(".//bpmn:subProcess", NS):
+        mi = sp.find("bpmn:multiInstanceLoopCharacteristics", NS)
+        if mi is not None and mi.attrib.get("isSequential") == "true":
+            card_el = mi.find("bpmn:loopCardinality", NS)
+            if card_el is not None and card_el.text:
+                loops[sp.attrib["id"]] = int(card_el.text)
+            for el in sp.findall(".//*", NS):
+                if "id" in el.attrib:
+                    node_to_sp[el.attrib["id"]] = sp.attrib["id"]
 
     nodes: Dict[str, Dict[str, Any]] = {}
     for tag, typ in [
@@ -28,6 +40,7 @@ def parse_bpmn(path: str):
         ("exclusiveGateway", "exclusiveGateway"),
         ("startEvent", "startEvent"),
         ("endEvent", "endEvent"),
+        ("subProcess", "subProcess"),
     ]:
         for el in root.findall(f".//bpmn:{tag}", NS):
             info: Dict[str, Any] = {"type": typ}
@@ -51,15 +64,34 @@ def parse_bpmn(path: str):
             "condition": cond_text,
             "default": sf.attrib.get("default") == "true",
         })
-    return nodes, flows
+
+    start_nodes: Dict[str, Set[str]] = {sp: set() for sp in loops}
+    for fl in flows:
+        sp_id = node_to_sp.get(fl["source"])
+        if sp_id and nodes.get(fl["source"], {}).get("type") == "startEvent":
+            start_nodes[sp_id].add(fl["target"])
+
+    loop_flows: Set[Tuple[str, str]] = set()
+    for fl in flows:
+        sp_id = node_to_sp.get(fl["source"])
+        if sp_id and sp_id == node_to_sp.get(fl["target"]):
+            if fl["target"] in start_nodes.get(sp_id, set()):
+                loop_flows.add((fl["source"], fl["target"]))
+
+    return nodes, flows, loops, node_to_sp, loop_flows, start_nodes
 
 
 # --- LangGraph Construction -------------------------------------------------
 
-def make_task(fn_name: str, fn_map: Dict[str, Any]):
+def make_task(node_id: str, fn_name: str, fn_map: Dict[str, Any], start_nodes, node_to_sp):
     """Wrap a function from *fn_map* so it can be used in the graph."""
 
     def task(state: Dict[str, Any]) -> Dict[str, Any]:
+        sp_id = node_to_sp.get(node_id)
+        if sp_id and node_id in start_nodes.get(sp_id, set()):
+            key = f"{sp_id}_iteration"
+            state[key] = state.get(key, 0) + 1
+            state["iteration"] = state[key]
         func = fn_map.get(fn_name)
         if not callable(func):
             raise ValueError(f"Function '{fn_name}' not provided")
@@ -70,12 +102,13 @@ def make_task(fn_name: str, fn_map: Dict[str, Any]):
     return task
 
 
-def make_router(flows):
+def make_router(node_id: str, flows, loops, node_to_sp, loop_flows):
     def router(state: Dict[str, Any]):
         default_target = None
         for fl in flows:
             if fl["default"]:
                 default_target = fl["target"]
+        chosen = None
         for fl in flows:
             expr = fl["condition"]
             if expr:
@@ -85,10 +118,27 @@ def make_router(flows):
                 cond = cond.replace("&&", "and").replace("||", "or")
                 try:
                     if eval(cond, {}, state):
-                        return fl["target"]
+                        chosen = fl["target"]
+                        break
                 except Exception:
                     pass
-        return default_target or flows[0]["target"]
+        if chosen is None:
+            chosen = default_target or flows[0]["target"]
+
+        sp_id = node_to_sp.get(node_id)
+        if sp_id and (node_id, chosen) in loop_flows:
+            key = f"{sp_id}_iteration"
+            count = state.get(key, 0) + 1
+            if count > loops.get(sp_id, count):
+                for fl in flows:
+                    if (node_id, fl["target"]) not in loop_flows:
+                        chosen = fl["target"]
+                        break
+            else:
+                state[key] = count
+                state["iteration"] = count
+
+        return chosen
     return router
 
 
@@ -97,7 +147,7 @@ def build_graph(
     functions: Dict[str, Any],
     checkpointer: Any | None = None,
 ):
-    nodes, flows = parse_bpmn(xml_path)
+    nodes, flows, loops, node_to_sp, loop_flows, start_nodes = parse_bpmn(xml_path)
     outgoing: Dict[str, list] = {}
     for fl in flows:
         outgoing.setdefault(fl["source"], []).append(fl)
@@ -106,7 +156,7 @@ def build_graph(
     graph = StateGraph(dict)
     for node_id, info in nodes.items():
         if info["type"] == "serviceTask":
-            graph.add_node(node_id, make_task(info.get("fn"), fn_map))
+            graph.add_node(node_id, make_task(node_id, info.get("fn"), fn_map, start_nodes, node_to_sp))
         else:
             graph.add_node(node_id, lambda state: state)
 
@@ -121,7 +171,7 @@ def build_graph(
     # gateways as conditional edges
     for node_id, info in nodes.items():
         if info["type"] == "exclusiveGateway":
-            router = make_router(outgoing.get(node_id, []))
+            router = make_router(node_id, outgoing.get(node_id, []), loops, node_to_sp, loop_flows)
             graph.add_conditional_edges(node_id, router)
 
     starts = [k for k, v in nodes.items() if v["type"] == "startEvent"]
