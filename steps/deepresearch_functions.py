@@ -108,8 +108,45 @@ def query_extender(state: Dict[str, Any]) -> Dict[str, Any]:
     outputs={"chunks": list},
 )
 def retrieve_from_web(state: Dict[str, Any]) -> Dict[str, Any]:
-    q = state.get("extended_query", "")
-    return {"chunks": [f"chunk for {q}"]}
+    """Retrieve web pages using a headless browser."""
+    query = state.get("extended_query", "")
+    top_k = int(state.get("top_k", 3))
+
+    try:
+        from requests_html import HTMLSession
+        from urllib.parse import quote_plus
+    except Exception:
+        # Fallback behaviour if the dependency is unavailable
+        return {"chunks": [f"chunk for {query}"]}
+
+    session = HTMLSession()
+    search_url = f"https://www.google.com/search?q={quote_plus(query)}"
+
+    try:
+        search_resp = session.get(search_url)
+        search_resp.html.render(timeout=20)
+    except Exception:
+        return {"chunks": [f"chunk for {query}"]}
+
+    links: list[str] = []
+    for element in search_resp.html.find("a"):
+        href = element.attrs.get("href", "")
+        if href.startswith("/url?q="):
+            links.append(href.split("/url?q=")[1].split("&")[0])
+            if len(links) >= top_k:
+                break
+
+    chunks: list[str] = []
+    for link in links:
+        try:
+            page = session.get(link)
+            page.html.render(timeout=20)
+            if page.html.text:
+                chunks.append(page.html.text)
+        except Exception:
+            continue
+
+    return {"chunks": chunks}
 
 @bpmn_op(
     name="process_info",
