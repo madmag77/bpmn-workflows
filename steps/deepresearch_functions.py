@@ -16,15 +16,29 @@ class QueryAnalysis(BaseModel):
     questions: list[str] = Field(default_factory=list, description="Clarification questions")
 
 
+class QueryExtension(BaseModel):
+    extended_query: str = Field(..., description="Extended query for next iteration")
+
+
 @lru_cache()
 def _load_prompts() -> dict:
     return yaml.safe_load(PROMPT_PATH.read_text())
 
 
 @lru_cache()
+def _base_llm():
+    """Return the base LLM instance."""
+    return Ollama(model="gemma3:27b")
+
+
+@lru_cache()
 def _structured_llm():
-    llm = Ollama(model="gemma3:27b")
-    return llm.as_structured_llm(output_cls=QueryAnalysis)
+    return _base_llm().as_structured_llm(output_cls=QueryAnalysis)
+
+
+@lru_cache()
+def _structured_llm_extender():
+    return _base_llm().as_structured_llm(output_cls=QueryExtension)
 
 @bpmn_op(
     name="analyse_user_query",
@@ -64,7 +78,29 @@ def ask_questions(state: Dict[str, Any]) -> Dict[str, Any]:
     outputs={"extended_query": str},
 )
 def query_extender(state: Dict[str, Any]) -> Dict[str, Any]:
-    return {"extended_query": state.get("next_query") or state.get("query", "")}
+    query = state.get("query", "")
+    clarifications = state.get("clarifications", "")
+    next_query = state.get("next_query", "")
+    prompts = _load_prompts()
+    llm = _structured_llm_extender()
+    input_msg = ChatMessage.from_str(
+        prompts["query_extender"].format(
+            query=query, clarifications=clarifications, next_query=next_query
+        )
+    )
+    try:
+        response = llm.chat([input_msg])
+        return response.raw.model_dump()
+    except Exception:
+        parts = []
+        if next_query:
+            parts.append(next_query)
+        if clarifications:
+            parts.append(clarifications)
+        if query:
+            parts.append(query)
+        extended = " ".join(parts).strip()
+        return {"extended_query": extended}
 
 @bpmn_op(
     name="retrieve_from_web",

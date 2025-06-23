@@ -6,3 +6,13 @@ analyse_user_query: |
   Respond in JSON with two keys:
     extended_query: revised query text
     questions: list of questions, leave empty if none are needed
+
+query_extender: |
+  You are extending a search query for iterative research.
+  Original query: "{query}"
+  User clarifications: "{clarifications}"
+  Current research focus: "{next_query}"
+  Craft a single concise search query for the next iteration.
+  Prioritize the current focus and incorporate clarifications and the original query when helpful.
+  Respond in JSON with one key:
+    extended_query: the rewritten query
