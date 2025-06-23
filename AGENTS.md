@@ -22,7 +22,7 @@ bpmn-workflows/
 │   └── deepresearch_functions.py   # implementation of the workflow steps for deepresearch workflow
 ├── prompts/                        # prompts for functions in steps
 ├── bpmn_workflows/                 # helper functions for interacting with bpmn syntax
-├── run_bpmn_workflows.py           # entry point to run workflows
+├── run_bpmn_workflow.py           # entry point to run workflows
 ├── validate_workflow.py            # should be used to validate workflow in xml format after each change of it
 ```
 
