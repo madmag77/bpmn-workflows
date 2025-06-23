@@ -50,6 +50,12 @@ def parse_bpmn(path: str):
                 info["fn"] = m.group(1) if m else None
             nodes[el.attrib["id"]] = info
 
+    gw_defaults = {
+        gw.attrib.get("default"): True
+        for gw in root.findall(".//bpmn:exclusiveGateway", NS)
+        if gw.attrib.get("default")
+    }
+
     flows = []
     for sf in root.findall(".//bpmn:sequenceFlow", NS):
         cond_el = sf.find("bpmn:conditionExpression", NS)
@@ -58,11 +64,12 @@ def parse_bpmn(path: str):
             cond_text = cond_el.text.strip()
             if cond_text.startswith("\\${"):
                 cond_text = cond_text[1:]
+        is_default = sf.attrib.get("default") == "true" or gw_defaults.get(sf.attrib.get("id"))
         flows.append({
             "source": sf.attrib["sourceRef"],
             "target": sf.attrib["targetRef"],
             "condition": cond_text,
-            "default": sf.attrib.get("default") == "true",
+            "default": bool(is_default),
         })
 
     start_nodes: Dict[str, Set[str]] = {sp: set() for sp in loops}
