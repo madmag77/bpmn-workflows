@@ -10,6 +10,7 @@ def run_workflow(
     thread_id="test",
     interrupt_after=None,
     recursion_limit=100,
+    resume=None,
 ):
     fn_map = {
         name: getattr(wf, name)
@@ -22,9 +23,14 @@ def run_workflow(
     input_kwargs = {"input_text": "hello", "rephraseCount": 0}
     if params:
         input_kwargs.update(params)
+    if resume is not None:
+        from langgraph.types import Command
+        invoke_obj = Command(resume=resume)
+    else:
+        invoke_obj = input_kwargs
     config = {"configurable": {"thread_id": thread_id}, "recursion_limit": recursion_limit}
     return app.invoke(
-        input_kwargs,
+        invoke_obj,
         config,
         interrupt_after=interrupt_after,
     )

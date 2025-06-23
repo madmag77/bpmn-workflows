@@ -3,6 +3,8 @@ import re
 import xml.etree.ElementTree as ET
 from typing import Dict, Any
 import argparse
+import json
+from langgraph.types import Command
 
 from bpmn_workflows import compat  # noqa: F401
 from langgraph.graph import StateGraph
@@ -138,6 +140,18 @@ if __name__ == "__main__":
         "--param", action="append", default=[],
         help="Workflow input parameter in key=value format. Can be used multiple times."
     )
+    parser.add_argument(
+        "--thread-id",
+        type=str,
+        default="cli",
+        help="Thread identifier for resuming workflows",
+    )
+    parser.add_argument(
+        "--resume",
+        type=str,
+        default=None,
+        help="JSON encoded value used to resume an interrupted workflow",
+    )
     args = parser.parse_args()
 
     import steps.example_functions as example_functions  # Import all workflow functions
@@ -165,6 +179,11 @@ if __name__ == "__main__":
         return params
 
     app = build_graph(args.workflow_path, functions=fn_map)
-    input_kwargs = parse_params(args.param)
-    result = app.invoke(input_kwargs)
+    config: Dict[str, Any] = {"configurable": {"thread_id": args.thread_id}}
+    if args.resume:
+        resume_val = json.loads(args.resume)
+        result = app.invoke(Command(resume=resume_val), config)
+    else:
+        input_kwargs = parse_params(args.param)
+        result = app.invoke(input_kwargs, config)
     print(result)
