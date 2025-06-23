@@ -1,7 +1,6 @@
 import steps.deepresearch_functions as drf
-from run_bpmn_workflow import build_graph
 from langgraph.checkpoint.memory import MemorySaver
-from langgraph.types import Command
+from .helper import run_workflow
 
 XML_PATH = "workflows/deepresearch/deepresearch.xml"
 
@@ -15,13 +14,21 @@ def test_clarification_interrupt_resume():
     overrides["analyse_user_query"] = analyse
 
     saver = MemorySaver()
-    graph = build_graph(XML_PATH, functions=overrides, checkpointer=saver)
-
-    config = {"configurable": {"thread_id": "clarify"}}
-
-    first = graph.invoke({"query": "hello"}, config)
+    first = run_workflow(
+        XML_PATH,
+        fn_overrides=overrides,
+        params={"query": "hello"},
+        checkpointer=saver,
+        thread_id="clarify",
+    )
     assert "__interrupt__" in first
 
-    resumed = graph.invoke(Command(resume="answer"), config)
+    resumed = run_workflow(
+        XML_PATH,
+        fn_overrides=overrides,
+        checkpointer=saver,
+        thread_id="clarify",
+        resume="answer",
+    )
     assert resumed.get("clarifications") == "answer"
     assert resumed.get("final_answer")
