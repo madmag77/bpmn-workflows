@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
              xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
              xmlns:ext="http://your-company.com/bpmn-ext"
@@ -38,10 +39,10 @@
     </serviceTask>
     <sequenceFlow id="flow5" sourceRef="AskUser" targetRef="QueryExtender"/>
 
-    <subProcess id="ResearchLoop">
-      <multiInstanceLoopCharacteristics isSequential="true">
-        <loopCardinality xsi:type="tFormalExpression">10</loopCardinality>
-      </multiInstanceLoopCharacteristics>
+    <bpmn:subProcess id="ResearchLoop">
+      <bpmn:multiInstanceLoopCharacteristics isSequential="true">
+        <bpmn:loopCardinality>10</bpmn:loopCardinality>
+      </bpmn:multiInstanceLoopCharacteristics>
 
       <startEvent id="LoopStart" />
       <sequenceFlow id="flow5a" sourceRef="LoopStart" targetRef="QueryExtender"/>
@@ -95,12 +96,12 @@
       </serviceTask>
       <sequenceFlow id="flow9" sourceRef="AnswerValidate" targetRef="DecisionValidate"/>
 
-      <exclusiveGateway id="DecisionValidate"/>
+      <exclusiveGateway id="DecisionValidate" default="flow11"/>
       <sequenceFlow id="flow10" sourceRef="DecisionValidate" targetRef="FinalAnswer">
         <conditionExpression xsi:type="tFormalExpression"><![CDATA[${is_enough == 'GOOD'}]]></conditionExpression>
       </sequenceFlow>
-      <sequenceFlow id="flow11" sourceRef="DecisionValidate" targetRef="QueryExtender" default="true"/>
-    </subProcess>
+      <sequenceFlow id="flow11" sourceRef="DecisionValidate" targetRef="QueryExtender"/>
+    </bpmn:subProcess>
 
 
     <serviceTask id="FinalAnswer" name="Final Answer"
@@ -131,6 +132,12 @@
       <bpmndi:BPMNShape id="AskUser_di" bpmnElement="AskUser">
         <omgdc:Bounds x="350" y="200" width="100" height="80"/>
       </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ResearchLoop_di" bpmnElement="ResearchLoop">
+        <omgdc:Bounds x="480" y="60" width="700" height="120"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="LoopStart_di" bpmnElement="LoopStart">
+        <omgdc:Bounds x="470" y="100" width="36" height="36"/>
+      </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="QueryExtender_di" bpmnElement="QueryExtender">
         <omgdc:Bounds x="500" y="80" width="100" height="80"/>
       </bpmndi:BPMNShape>
@@ -157,6 +164,7 @@
       <bpmndi:BPMNEdge id="flow3_di" bpmnElement="flow3"><omgdi:waypoint x="375" y="118"/><omgdi:waypoint x="350" y="240"/></bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="flow4_di" bpmnElement="flow4"><omgdi:waypoint x="375" y="118"/><omgdi:waypoint x="500" y="118"/></bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="flow5_di" bpmnElement="flow5"><omgdi:waypoint x="450" y="240"/><omgdi:waypoint x="500" y="118"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow5a_di" bpmnElement="flow5a"><omgdi:waypoint x="506" y="118"/><omgdi:waypoint x="500" y="118"/></bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="flow6_di" bpmnElement="flow6"><omgdi:waypoint x="600" y="118"/><omgdi:waypoint x="650" y="118"/></bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="flow7_di" bpmnElement="flow7"><omgdi:waypoint x="750" y="118"/><omgdi:waypoint x="800" y="118"/></bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="flow8_di" bpmnElement="flow8"><omgdi:waypoint x="900" y="118"/><omgdi:waypoint x="950" y="118"/></bpmndi:BPMNEdge>
