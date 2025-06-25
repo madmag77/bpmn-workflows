@@ -20,6 +20,10 @@ class QueryExtension(BaseModel):
     extended_query: str = Field(..., description="Extended query for next iteration")
 
 
+class AnswerDraft(BaseModel):
+    answer_draft: str = Field(..., description="Updated draft answer")
+
+
 @lru_cache()
 def _load_prompts() -> dict:
     return yaml.safe_load(PROMPT_PATH.read_text())
@@ -39,6 +43,11 @@ def _structured_llm():
 @lru_cache()
 def _structured_llm_extender():
     return _base_llm().as_structured_llm(output_cls=QueryExtension)
+
+
+@lru_cache()
+def _structured_llm_draft():
+    return _base_llm().as_structured_llm(output_cls=AnswerDraft)
 
 @bpmn_op(
     name="analyse_user_query",
@@ -156,7 +165,24 @@ def retrieve_from_web(state: Dict[str, Any]) -> Dict[str, Any]:
 def process_info(state: Dict[str, Any]) -> Dict[str, Any]:
     draft = state.get("answer_draft", "")
     chunks = state.get("chunks", [])
-    return {"answer_draft": draft + f" info from {chunks}"}
+    query = state.get("query", "")
+    extended_query = state.get("extended_query", "")
+    prompts = _load_prompts()
+    llm = _structured_llm_draft()
+    joined = "\n".join(chunks)
+    input_msg = ChatMessage.from_str(
+        prompts["process_info"].format(
+            query=query,
+            extended_query=extended_query,
+            answer_draft=draft,
+            chunks=joined,
+        )
+    )
+    try:
+        response = llm.chat([input_msg])
+        return response.raw.model_dump()
+    except Exception:
+        return {"answer_draft": draft + f" info from {chunks}"}
 
 @bpmn_op(
     name="answer_validate",

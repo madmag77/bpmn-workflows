@@ -16,3 +16,15 @@ query_extender: |
   Prioritize the current focus and incorporate clarifications and the original query when helpful.
   Respond in JSON with one key:
     extended_query: the rewritten query
+
+process_info: |
+  You are compiling research information to answer a user question.
+  Original query: "{query}"
+  Extended query used for retrieval: "{extended_query}"
+  Current draft answer:
+    {answer_draft}
+  Retrieved chunks:
+    {chunks}
+  Combine the chunks with the existing draft to produce an updated answer.
+  Respond in JSON with one key:
+    answer_draft: the updated draft answer
