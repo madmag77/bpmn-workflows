@@ -1,4 +1,4 @@
-from typing import Dict, Any
+from typing import Any, Dict
 from pathlib import Path
 from functools import lru_cache
 import yaml
@@ -22,6 +22,11 @@ class QueryExtension(BaseModel):
 
 class AnswerDraft(BaseModel):
     answer_draft: str = Field(..., description="Updated draft answer")
+
+
+class AnswerValidation(BaseModel):
+    is_enough: str = Field(..., description="GOOD if answer is sufficient, BAD otherwise")
+    next_query: str = Field("", description="Refined search query if more information is needed")
 
 
 @lru_cache()
@@ -48,6 +53,11 @@ def _structured_llm_extender():
 @lru_cache()
 def _structured_llm_draft():
     return _base_llm().as_structured_llm(output_cls=AnswerDraft)
+
+
+@lru_cache()
+def _structured_llm_validate():
+    return _base_llm().as_structured_llm(output_cls=AnswerValidation)
 
 @bpmn_op(
     name="analyse_user_query",
@@ -190,9 +200,21 @@ def process_info(state: Dict[str, Any]) -> Dict[str, Any]:
     outputs={"is_enough": str, "next_query": str},
 )
 def answer_validate(state: Dict[str, Any]) -> Dict[str, Any]:
-    if state.get("iteration", 0) >= 1:
-        return {"is_enough": "GOOD", "next_query": ""}
-    return {"is_enough": "BAD", "next_query": "next"}
+    """Validate if the draft answer satisfies the original query."""
+    query = state.get("query", "")
+    draft = state.get("answer_draft", "")
+    prompts = _load_prompts()
+    llm = _structured_llm_validate()
+    input_msg = ChatMessage.from_str(
+        prompts["answer_validate"].format(query=query, answer_draft=draft)
+    )
+    try:
+        response = llm.chat([input_msg])
+        return response.raw.model_dump()
+    except Exception:
+        if state.get("iteration", 0) >= 1:
+            return {"is_enough": "GOOD", "next_query": ""}
+        return {"is_enough": "BAD", "next_query": "next"}
 
 @bpmn_op(
     name="final_answer_generation",
