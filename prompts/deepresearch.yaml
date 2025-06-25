@@ -28,3 +28,12 @@ process_info: |
   Combine the chunks with the existing draft to produce an updated answer.
   Respond in JSON with one key:
     answer_draft: the updated draft answer
+
+answer_validate: |
+  You are assessing whether the current draft fully answers the user request.
+  User query: "{query}"
+  Draft answer:
+    {answer_draft}
+  Decide if the answer is sufficient. Respond in JSON with two keys:
+    is_enough: either GOOD or BAD
+    next_query: if BAD, provide a concise follow-up query to continue research, otherwise empty
