@@ -29,6 +29,10 @@ class AnswerValidation(BaseModel):
     next_query: str = Field("", description="Refined search query if more information is needed")
 
 
+class FinalAnswer(BaseModel):
+    final_answer: str = Field(..., description="Polished final answer")
+
+
 @lru_cache()
 def _load_prompts() -> dict:
     return yaml.safe_load(PROMPT_PATH.read_text())
@@ -58,6 +62,11 @@ def _structured_llm_draft():
 @lru_cache()
 def _structured_llm_validate():
     return _base_llm().as_structured_llm(output_cls=AnswerValidation)
+
+
+@lru_cache()
+def _structured_llm_final():
+    return _base_llm().as_structured_llm(output_cls=FinalAnswer)
 
 @bpmn_op(
     name="analyse_user_query",
@@ -222,4 +231,15 @@ def answer_validate(state: Dict[str, Any]) -> Dict[str, Any]:
     outputs={"final_answer": str},
 )
 def final_answer_generation(state: Dict[str, Any]) -> Dict[str, Any]:
-    return {"final_answer": state.get("answer_draft", "")}
+    query = state.get("query", "")
+    draft = state.get("answer_draft", "")
+    prompts = _load_prompts()
+    llm = _structured_llm_final()
+    input_msg = ChatMessage.from_str(
+        prompts["final_answer_generation"].format(query=query, answer_draft=draft)
+    )
+    try:
+        response = llm.chat([input_msg])
+        return response.raw.model_dump()
+    except Exception:
+        return {"final_answer": draft}

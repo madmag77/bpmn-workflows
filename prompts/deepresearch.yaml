@@ -37,3 +37,12 @@ answer_validate: |
   Decide if the answer is sufficient. Respond in JSON with two keys:
     is_enough: either GOOD or BAD
     next_query: if BAD, provide a concise follow-up query to continue research, otherwise empty
+
+final_answer_generation: |
+  You are polishing the final answer for a user.
+  Original query: "{query}"
+  Current draft answer:
+    {answer_draft}
+  Refine the draft into a clear and complete response.
+  Respond in JSON with one key:
+    final_answer: the polished answer
