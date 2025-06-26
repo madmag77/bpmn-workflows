@@ -176,6 +176,47 @@ def retrieve_from_web(state: Dict[str, Any]) -> Dict[str, Any]:
 
     return {"chunks": chunks}
 
+
+@bpmn_op(
+    name="retrieve_from_archive",
+    inputs={"extended_query": str},
+    outputs={"chunks": list},
+)
+def retrieve_from_archive(state: Dict[str, Any]) -> Dict[str, Any]:
+    """Search archive.org for papers matching the query."""
+    query = state.get("extended_query", "")
+    limit = int(state.get("top_k", 3))
+
+    try:
+        import requests
+    except Exception:
+        return {"chunks": [f"chunk for {query}"]}
+
+    url = "https://archive.org/advancedsearch.php"
+    params = {
+        "output": "json",
+        "q": query,
+        "rows": limit,
+        "fields": "title,description",
+    }
+
+    try:
+        resp = requests.get(url, params=params, timeout=10)
+        data = resp.json()
+        docs = data.get("response", {}).get("docs", [])
+    except Exception:
+        return {"chunks": [f"chunk for {query}"]}
+
+    chunks: list[str] = []
+    for doc in docs:
+        title = doc.get("title", "")
+        desc = doc.get("description", "")
+        text = " ".join(part for part in [title, desc] if part).strip()
+        if text:
+            chunks.append(text)
+
+    return {"chunks": chunks}
+
 @bpmn_op(
     name="process_info",
     inputs={"query": str, "chunks": list, "answer_draft": str},
