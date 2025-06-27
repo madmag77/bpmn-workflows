@@ -236,6 +236,7 @@ if __name__ == "__main__":
         return params
 
     app = build_graph(args.workflow_path, functions=fn_map)
+    print(app.get_graph().draw_ascii())
     config: Dict[str, Any] = {"configurable": {"thread_id": args.thread_id}}
     if args.resume:
         resume_val = json.loads(args.resume)

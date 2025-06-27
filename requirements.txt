@@ -16,3 +16,4 @@ ruff
 llama-index
 llama-index-llms-ollama
 requests-html
+grandalf
