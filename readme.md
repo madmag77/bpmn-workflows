@@ -6,13 +6,15 @@ A Python-based tool for executing BPMN workflows using LangGraph. This tool allo
 
 - `bpmn_workflows/run_bpmn_workflow.py` - The main script for parsing and executing BPMN workflows
 - `steps/example_functions.py` - Collection of workflow functions that can be used in BPMN tasks
+- `steps/deepresearch_functions.py` - Functions for deep research workflow
 - `bpmn_workflows/validate_workflow.py` - Script to validate BPMN XML files
-- `bpmn_workflows/visualize_workflow.py` - Script to generate visual diagrams of workflows
-- `generate_ext_schema.py` - Script to generate BPMN extension schema from decorated functions
-- `bpmn_ext.py` - Module for BPMN extension support and operation decorators
+- `bpmn_workflows/visualize_worklow.py` - Script to generate visual diagrams of workflows
+- `bpmn_ext/generate_ext_schema.py` - Script to generate BPMN extension schema from decorated functions
+- `bpmn_ext/bpmn_ext.py` - Module for BPMN extension support and operation decorators
+- `chainlit_ui/` - Chainlit web interface for the deep research workflow
 - `workflows/` - Directory containing workflows
   - `example_1/` - Example workflow with QA processing logic
-  - `deepresearch` - Deep research workflow
+  - `deepresearch/` - Deep research workflow
 
 ## Setup
 
@@ -225,3 +227,25 @@ Service tasks should:
 1. Reference functions using the Camunda expression format: `${functionName}`
 2. Declare operation parameters using extension elements
 3. Match the function's declared inputs and outputs
+
+## Running Chainlit UI
+
+The project includes a Chainlit-based web interface for the deep research workflow. You can run it in two ways:
+
+### Using VSCode
+
+1. Open the project in VSCode
+2. Press F5 or go to Run and Debug
+3. Select "Chainlit" from the dropdown menu
+4. Click the play button or press F5
+
+### Using Terminal
+
+```bash
+cd chainlit_ui
+chainlit run main.py
+```
+
+The UI will be available at <http://localhost:8000/chainlit>
+
+Note: Make sure you have all dependencies installed and PostgreSQL running for checkpointing support.
