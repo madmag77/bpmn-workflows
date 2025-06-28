@@ -24,7 +24,13 @@ bpmn-workflows/
 ├── bpmn_workflows/                 # helper functions for interacting with bpmn syntax
 ├── run_bpmn_workflow.py           # entry point to run workflows
 ├── validate_workflow.py            # should be used to validate workflow in xml format after each change of it
+├── backend/                        # FastAPI service exposing workflow endpoints
+├── frontend/                       # React interface built with Vite
 ```
+
+The `backend` and `frontend` folders contain a FastAPI service and a Vite-based
+React application. They can be started separately to provide an API and a web
+interface for interacting with workflows.
 
 ## Development Setup
 

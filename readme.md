@@ -12,6 +12,8 @@ A Python-based tool for executing BPMN workflows using LangGraph. This tool allo
 - `bpmn_ext/generate_ext_schema.py` - Script to generate BPMN extension schema from decorated functions
 - `bpmn_ext/bpmn_ext.py` - Module for BPMN extension support and operation decorators
 - `chainlit_ui/` - Chainlit web interface for the deep research workflow
+- `backend/` - FastAPI service exposing endpoints for running workflows
+- `frontend/` - React interface built with Vite to interact with the backend
 - `workflows/` - Directory containing workflows
   - `example_1/` - Example workflow with QA processing logic
   - `deepresearch/` - Deep research workflow
@@ -249,3 +251,34 @@ chainlit run main.py
 The UI will be available at <http://localhost:8000/chainlit>
 
 Note: Make sure you have all dependencies installed and PostgreSQL running for checkpointing support.
+
+## Backend API
+
+The `backend` folder contains a FastAPI application that exposes endpoints for
+listing available workflow templates and starting or continuing workflows.
+
+### Running the backend
+
+```bash
+cd backend
+uvicorn main:app --reload
+```
+
+The API will be available at <http://localhost:8000/> by default.
+
+## Frontend
+
+The `frontend` folder hosts a small React application created with Vite. It will
+communicate with the backend API to show workflow status and allow launching new
+ones.
+
+### Running the frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+This starts a development server, usually reachable at
+<http://localhost:5173>.
