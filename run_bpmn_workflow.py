@@ -5,7 +5,7 @@ from typing import Dict, Any, Tuple, Set
 import argparse
 import json
 from langgraph.types import Command
-
+import importlib
 from bpmn_workflows import compat  # noqa: F401
 from langgraph.graph import StateGraph
 
@@ -194,6 +194,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run a BPMN workflow.")
     parser.add_argument("workflow_path", type=str, help="Path to the workflow XML file")
     parser.add_argument(
+        "--functions",
+        type=str,
+        default="steps.example_functions",
+        help="Python module containing the workflow functions (default: steps.example_functions)"
+    )
+    parser.add_argument(
         "--param", action="append", default=[],
         help="Workflow input parameter in key=value format. Can be used multiple times."
     )
@@ -211,10 +217,10 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    import steps.example_functions as example_functions  # Import all workflow functions
+    mod = importlib.import_module(args.functions)
     fn_map = {
-        k: getattr(example_functions, k)
-        for k in dir(example_functions)
+        k: getattr(mod, k)
+        for k in dir(mod)
         if not k.startswith("_")
     }
 

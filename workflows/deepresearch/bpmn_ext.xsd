@@ -15,6 +15,7 @@
             <xs:enumeration value="final_answer_generation"/>
             <xs:enumeration value="process_info"/>
             <xs:enumeration value="query_extender"/>
+            <xs:enumeration value="retrieve_from_archive"/>
             <xs:enumeration value="retrieve_from_web"/>
           </xs:restriction>
         </xs:simpleType>

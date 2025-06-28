@@ -2,5 +2,6 @@ __pycache__/
 *.py[cod]
 *.png
 .venv
+.env
 
 .DS_Store

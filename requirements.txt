@@ -15,5 +15,7 @@ pre-commit
 ruff
 llama-index
 llama-index-llms-ollama
-requests-html
 grandalf
+undetected-chromedriver
+selenium
+fake-useragent

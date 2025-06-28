@@ -2,14 +2,22 @@ from typing import Any, Dict
 from pathlib import Path
 from functools import lru_cache
 import yaml
+import os
 from pydantic import BaseModel, Field
 from llama_index.llms.ollama import Ollama
 from llama_index.core.llms import ChatMessage
 from bpmn_ext.bpmn_ext import bpmn_op
-from langgraph.types import interrupt
+#from langgraph.types import interrupt
+from urllib.parse import quote_plus
+import undetected_chromedriver as uc
+from fake_useragent import UserAgent
+from selenium import webdriver
+import time
+import random
 
 PROMPT_PATH = Path(__file__).resolve().parent.parent / "prompts" / "deepresearch.yaml"
-
+WEB_SEARCH_URL = os.getenv("WEB_SEARCH_URL")
+FILTER_OUT_TAGS = os.getenv("FILTER_OUT_TAGS", "").split(",") if os.getenv("FILTER_OUT_TAGS") else []
 
 class QueryAnalysis(BaseModel):
     extended_query: str = Field(..., description="Revised query for retrieval")
@@ -96,9 +104,9 @@ def analyse_user_query(state: Dict[str, Any]) -> Dict[str, Any]:
     outputs={"clarifications": str},
 )
 def ask_questions(state: Dict[str, Any]) -> Dict[str, Any]:
-    questions = state.get("questions", [])
-    answer = interrupt({"questions": questions})
-    return {"clarifications": answer}
+    #questions = state.get("questions", [])
+    #answer = interrupt({"questions": questions})
+    return {"clarifications": "Interrested mostly in diagnostics"}
 
 @bpmn_op(
     name="query_extender",
@@ -136,45 +144,68 @@ def query_extender(state: Dict[str, Any]) -> Dict[str, Any]:
     outputs={"chunks": list},
 )
 def retrieve_from_web(state: Dict[str, Any]) -> Dict[str, Any]:
-    """Retrieve web pages using a headless browser."""
+    """Retrieve web pages using an undetected headless browser."""
     query = state.get("extended_query", "")
     top_k = int(state.get("top_k", 3))
 
+    ua = UserAgent()
+    options = uc.ChromeOptions()
+    options.headless = True
+    options.add_argument(f'--user-agent={ua.random}')
+    options.add_argument('--disable-blink-features=AutomationControlled')
+    options.add_argument('--no-sandbox')
+    options.add_argument('--disable-dev-shm-usage')
+    options.add_argument("--incognito")
+    options.add_argument("--disable-search-engine-choice-screen")
+    
     try:
-        from requests_html import HTMLSession
-        from urllib.parse import quote_plus
-    except Exception:
-        # Fallback behaviour if the dependency is unavailable
-        return {"chunks": [f"chunk for {query}"]}
+        driver = webdriver.Chrome(options=options)
+        
+        search_url = f"{WEB_SEARCH_URL}?q={quote_plus(query)}"
 
-    session = HTMLSession()
-    search_url = f"https://www.google.com/search?q={quote_plus(query)}"
-
-    try:
-        search_resp = session.get(search_url)
-        search_resp.html.render(timeout=20)
-    except Exception:
-        return {"chunks": [f"chunk for {query}"]}
-
-    links: list[str] = []
-    for element in search_resp.html.find("a"):
-        href = element.attrs.get("href", "")
-        if href.startswith("/url?q="):
-            links.append(href.split("/url?q=")[1].split("&")[0])
-            if len(links) >= top_k:
-                break
-
-    chunks: list[str] = []
-    for link in links:
-        try:
-            page = session.get(link)
-            page.html.render(timeout=20)
-            if page.html.text:
-                chunks.append(page.html.text)
-        except Exception:
-            continue
-
-    return {"chunks": chunks}
+        driver.get(search_url)
+        time.sleep(random.uniform(2, 4))
+        
+        links = []
+        elements = driver.find_elements("tag name", "a")
+        for element in elements:
+            href = element.get_attribute("href")
+            if href and all(tag not in href for tag in FILTER_OUT_TAGS): 
+                links.append(href)
+                if len(links) >= top_k:
+                    break
+                    
+        chunks = []
+        for link in links:
+            try:
+                driver.get(link)
+                time.sleep(random.uniform(2, 5))
+                
+                page_text = driver.find_element("tag name", "body").text
+                if page_text:
+                    # Clean and normalize the text
+                    text = " ".join(page_text.split())
+                    if len(text) > 100:  # Only keep substantial content
+                        chunks.append(text[:10000])  # Limit chunk size
+            except Exception as e:
+                print(f"Failed to fetch {link}: {str(e)}")
+                continue
+                
+        if not chunks:
+            chunks = [f"No valid content could be retrieved for: {query}. Please try a different search query."]
+            
+        return {"chunks": chunks}
+        
+    except Exception as e:
+        print(f"Browser automation failed: {str(e)}")
+        # Fallback to a simple response if browser automation fails
+        return {"chunks": [f"Unable to retrieve search results for: {query}. Please try again later."]}
+    finally:
+        if driver:
+            try:
+                driver.quit()
+            except Exception:
+                pass
 
 
 @bpmn_op(

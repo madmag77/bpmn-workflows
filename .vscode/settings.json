@@ -1,0 +1,8 @@
+{
+    "python.linting.enabled": true,
+    "python.linting.ruffEnabled": true,
+    "editor.codeActionsOnSave": {
+        "source.organizeImports": "explicit",
+        "source.fixAll": "explicit"
+    }
+}
