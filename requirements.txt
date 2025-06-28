@@ -4,6 +4,7 @@ networkx
 langgraph>=0.4
 langgraph-checkpoint-postgres
 psycopg[binary]
+SQLAlchemy>=2.0
 xmlschema
 pytest
 testing.postgresql
