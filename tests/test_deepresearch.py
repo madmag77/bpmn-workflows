@@ -1,4 +1,4 @@
-from run_bpmn_workflow import run_workflow
+from bpmn_workflows.run_bpmn_workflow import run_workflow
 
 XML_PATH = "workflows/deepresearch/deepresearch.xml"
 

@@ -1,6 +1,6 @@
 from langgraph.checkpoint.memory import MemorySaver
 import json
-from run_bpmn_workflow import run_workflow
+from bpmn_workflows.run_bpmn_workflow import run_workflow
 from langgraph.types import interrupt
 
 XML_PATH = "workflows/deepresearch/deepresearch.xml"

@@ -1,7 +1,7 @@
 import shutil
 import testing.postgresql
 from langgraph.checkpoint.postgres import PostgresSaver
-from run_bpmn_workflow import run_workflow
+from bpmn_workflows.run_bpmn_workflow import run_workflow
 import pytest
 
 if not shutil.which("initdb"):
