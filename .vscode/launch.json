@@ -45,6 +45,20 @@
                 "--functions",
                 "steps.deepresearch_functions"
             ]
+        },
+        {
+            "name": "Python: Run Tests",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "args": [
+                "tests/",
+                "-vv",
+                "--capture=no",
+                "--tb=short"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false
         }
     ]
 }

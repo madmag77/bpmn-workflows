@@ -189,6 +189,22 @@ def build_graph(
     graph.set_finish_point(ends[0])
     return graph.compile(checkpointer=checkpointer)
 
+def run_workflow(workflow_path: str, 
+                 fn_map=None, 
+                 params: dict[str, Any] | None = None, 
+                 thread_id: str | None = None, 
+                 resume: str | None = None, 
+                 checkpointer: Any | None = None):
+    app = build_graph(workflow_path, functions=fn_map, checkpointer=checkpointer)
+    #print(app.get_graph().draw_ascii())
+    config: Dict[str, Any] = {"configurable": {"thread_id": thread_id}}
+    if resume:
+        resume_val = json.loads(resume)
+        result = app.invoke(Command(resume=resume_val), config)
+    else:
+        input_kwargs = params
+        result = app.invoke(input_kwargs, config)
+    return result
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run a BPMN workflow.")
@@ -241,13 +257,6 @@ if __name__ == "__main__":
             params[k] = v
         return params
 
-    app = build_graph(args.workflow_path, functions=fn_map)
-    print(app.get_graph().draw_ascii())
-    config: Dict[str, Any] = {"configurable": {"thread_id": args.thread_id}}
-    if args.resume:
-        resume_val = json.loads(args.resume)
-        result = app.invoke(Command(resume=resume_val), config)
-    else:
-        input_kwargs = parse_params(args.param)
-        result = app.invoke(input_kwargs, config)
+    # TODO: add default checkpointer
+    result = run_workflow(args.workflow_path, fn_map, parse_params(args.param), args.thread_id, args.resume)
     print(result)

@@ -2,22 +2,15 @@ from typing import Any, Dict
 from pathlib import Path
 from functools import lru_cache
 import yaml
-import os
 from pydantic import BaseModel, Field
 from llama_index.llms.ollama import Ollama
 from llama_index.core.llms import ChatMessage
 from bpmn_ext.bpmn_ext import bpmn_op
+from components.web_scraper import search_and_scrape
 #from langgraph.types import interrupt
-from urllib.parse import quote_plus
-import undetected_chromedriver as uc
-from fake_useragent import UserAgent
-from selenium import webdriver
-import time
-import random
 
 PROMPT_PATH = Path(__file__).resolve().parent.parent / "prompts" / "deepresearch.yaml"
-WEB_SEARCH_URL = os.getenv("WEB_SEARCH_URL")
-FILTER_OUT_TAGS = os.getenv("FILTER_OUT_TAGS", "").split(",") if os.getenv("FILTER_OUT_TAGS") else []
+
 
 class QueryAnalysis(BaseModel):
     extended_query: str = Field(..., description="Revised query for retrieval")
@@ -148,65 +141,7 @@ def retrieve_from_web(state: Dict[str, Any]) -> Dict[str, Any]:
     query = state.get("extended_query", "")
     top_k = int(state.get("top_k", 3))
 
-    ua = UserAgent()
-    options = uc.ChromeOptions()
-    options.headless = True
-    options.add_argument(f'--user-agent={ua.random}')
-    options.add_argument('--disable-blink-features=AutomationControlled')
-    options.add_argument('--no-sandbox')
-    options.add_argument('--disable-dev-shm-usage')
-    options.add_argument("--incognito")
-    options.add_argument("--disable-search-engine-choice-screen")
-    
-    try:
-        driver = webdriver.Chrome(options=options)
-        
-        search_url = f"{WEB_SEARCH_URL}?q={quote_plus(query)}"
-
-        driver.get(search_url)
-        time.sleep(random.uniform(2, 4))
-        
-        links = []
-        elements = driver.find_elements("tag name", "a")
-        for element in elements:
-            href = element.get_attribute("href")
-            if href and all(tag not in href for tag in FILTER_OUT_TAGS): 
-                links.append(href)
-                if len(links) >= top_k:
-                    break
-                    
-        chunks = []
-        for link in links:
-            try:
-                driver.get(link)
-                time.sleep(random.uniform(2, 5))
-                
-                page_text = driver.find_element("tag name", "body").text
-                if page_text:
-                    # Clean and normalize the text
-                    text = " ".join(page_text.split())
-                    if len(text) > 100:  # Only keep substantial content
-                        chunks.append(text[:10000])  # Limit chunk size
-            except Exception as e:
-                print(f"Failed to fetch {link}: {str(e)}")
-                continue
-                
-        if not chunks:
-            chunks = [f"No valid content could be retrieved for: {query}. Please try a different search query."]
-            
-        return {"chunks": chunks}
-        
-    except Exception as e:
-        print(f"Browser automation failed: {str(e)}")
-        # Fallback to a simple response if browser automation fails
-        return {"chunks": [f"Unable to retrieve search results for: {query}. Please try again later."]}
-    finally:
-        if driver:
-            try:
-                driver.quit()
-            except Exception:
-                pass
-
+    return search_and_scrape(query, top_k)
 
 @bpmn_op(
     name="retrieve_from_archive",

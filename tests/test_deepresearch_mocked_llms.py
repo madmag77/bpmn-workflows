@@ -1,11 +1,11 @@
-from .helper import run_workflow
+from run_bpmn_workflow import run_workflow
 import steps.deepresearch_functions as drf
 
 XML_PATH = "workflows/deepresearch/deepresearch.xml"
 
 FN_MAP = {name: getattr(drf, name) for name in dir(drf) if not name.startswith("_")}
 
-
+# Full flow test with mocked LLMs and web retrieval
 def test_deepresearch_full_mocked(monkeypatch):
     class DummyAnalyse:
         def chat(self, msgs):
@@ -43,8 +43,7 @@ def test_deepresearch_full_mocked(monkeypatch):
     monkeypatch.setattr(drf, "_structured_llm_validate", lambda: DummyValidate())
     monkeypatch.setattr(drf, "_structured_llm_final", lambda: DummyFinal())
 
-    # avoid network access during retrieval
-    monkeypatch.setattr(drf, "retrieve_from_web", lambda state: {"chunks": ["chunk"]})
+    FN_MAP["retrieve_from_web"] = lambda state: {"chunks": ["chunk"]}
 
-    result = run_workflow(XML_PATH, fn_overrides=FN_MAP, params={"query": "hello"})
+    result = run_workflow(XML_PATH, fn_map=FN_MAP, params={"query": "hello"})
     assert result.get("final_answer") == "polished"
