@@ -3,5 +3,6 @@ __pycache__/
 *.png
 .venv
 .env
+.chainlit
 
 .DS_Store

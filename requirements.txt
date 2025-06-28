@@ -19,3 +19,6 @@ grandalf
 undetected-chromedriver
 selenium
 fake-useragent
+chainlit
+fastapi
+uvicorn

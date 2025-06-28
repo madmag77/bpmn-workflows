@@ -59,6 +59,14 @@
             ],
             "console": "integratedTerminal",
             "justMyCode": false
+        },
+        {
+            "name": "Chainlit",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "chainlit_ui/main.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}"
         }
     ]
 }
