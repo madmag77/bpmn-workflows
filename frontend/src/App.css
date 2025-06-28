@@ -1,0 +1,62 @@
+.container {
+  display: flex;
+  height: 100vh;
+  font-family: sans-serif;
+}
+
+.sidebar {
+  width: 250px;
+  border-right: 1px solid #ccc;
+  padding: 1rem;
+  box-sizing: border-box;
+}
+
+.workflow-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1rem 0;
+}
+
+.workflow-list li {
+  padding: 0.5rem;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.workflow-list li.selected {
+  background-color: #eee;
+}
+
+.state {
+  font-size: 0.8rem;
+  margin-left: 0.5rem;
+}
+
+.state-in-progress {
+  color: orange;
+}
+
+.state-waiting-for-user {
+  color: blue;
+}
+
+.state-finished {
+  color: green;
+}
+
+.new-workflow {
+  width: 100%;
+  padding: 0.5rem;
+}
+
+.content {
+  flex: 1;
+  padding: 1rem;
+  overflow: auto;
+}
+
+.workflow-content {
+  margin-top: 1rem;
+}
