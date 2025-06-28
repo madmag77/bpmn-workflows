@@ -4,30 +4,34 @@ A Python-based tool for executing BPMN workflows using LangGraph. This tool allo
 
 ## Structure
 
-- `run_bpmn_workflow.py` - The main script for parsing and executing BPMN workflows
+- `bpmn_workflows/run_bpmn_workflow.py` - The main script for parsing and executing BPMN workflows
 - `steps/example_functions.py` - Collection of workflow functions that can be used in BPMN tasks
-- `validate_workflow.py` - Script to validate BPMN XML files
-- `visualize_workflow.py` - Script to generate visual diagrams of workflows
+- `bpmn_workflows/validate_workflow.py` - Script to validate BPMN XML files
+- `bpmn_workflows/visualize_workflow.py` - Script to generate visual diagrams of workflows
 - `generate_ext_schema.py` - Script to generate BPMN extension schema from decorated functions
 - `bpmn_ext.py` - Module for BPMN extension support and operation decorators
 - `workflows/` - Directory containing workflows
   - `example_1/` - Example workflow with QA processing logic
+  - `deepresearch` - Deep research workflow
 
 ## Setup
 
 1. Make sure you have Python 3.x installed
 2. Install the required dependencies:
+
 ```bash
 pip install -r requirements.txt
 ```
 
 Install postgres for storing checkpoints
+
 ```bash
 brew install postgresql@15
 echo 'export PATH="/opt/homebrew/opt/postgresql@15/bin:$PATH"' >> ~/.zshrc
 ```
 
 1. For visualization support, install Graphviz:
+
 ```bash
 brew install graphviz  # On macOS
 # or
@@ -39,21 +43,25 @@ sudo apt-get install graphviz  # On Ubuntu/Debian
 This project uses pre-commit hooks to ensure code quality. To set up pre-commit:
 
 1. Install pre-commit:
+
 ```bash
 pip install pre-commit
 ```
 
 2. Install the pre-commit hooks:
+
 ```bash
 pre-commit install
 ```
 
 The following hooks are configured:
+
 - Ruff: Python linter for fast code quality checks
   - Line length: 120 characters
   - Selected rules: E (pycodestyle errors), F (pyflakes)
 
 To run the hooks manually:
+
 ```bash
 pre-commit run --all-files
 ```
@@ -65,12 +73,13 @@ pre-commit run --all-files
 The script takes a path to a BPMN XML file and allows passing arbitrary input parameters:
 
 ```bash
-python run_bpmn_workflow.py <path_to_bpmn_xml> --param key1=value1 --param key2=value2
+python bpmn_workflows/run_bpmn_workflow.py <path_to_bpmn_xml> --param key1=value1 --param key2=value2
 ```
 
 Example:
+
 ```bash
-python run_bpmn_workflow.py workflows/example_1/example1.xml --param input_text=hello --param rephraseCount=0
+python bpmn_workflows/run_bpmn_workflow.py workflows/example_1/example1.xml --param input_text=hello --param rephraseCount=0
 ```
 
 ### Testing Workflows
@@ -81,28 +90,16 @@ The project includes a test suite to verify workflow behavior. Tests are located
 pytest -q
 ```
 
-Example test files demonstrate how to test different workflow branches and scenarios:
-- `test_branch_qa_ok.py` - Testing successful QA flow
-- `test_branch_qa_rephrase.py` - Testing query rephrasing
-- `test_branch_qa_error.py` - Testing error handling
-- `test_branch_summarize.py` - Testing summarization flow
-- `test_branch_not_clear.py` - Testing unclear input handling
-
-To create new tests:
-1. Create a new test file in the `tests` directory
-2. Import necessary helper functions from `helper.py`
-3. Define test functions that verify specific workflow paths
-4. Run tests using pytest to ensure workflow behaves as expected
-
 ### Validating Workflows
 
 Before running a workflow, you can validate the BPMN XML file:
 
 ```bash
-python validate_workflow.py workflows/example_1/example1.xml --functions steps.example_functions
+python bpmn_workflows/validate_workflow.py workflows/example_1/example1.xml --functions steps.example_functions
 ```
 
 This will check:
+
 - XML syntax
 - BPMN schema compliance
 - Presence of required elements
@@ -122,11 +119,12 @@ The extension schema is automatically generated during validation. The schema fi
 - Schema location makes it easier to package and distribute workflows
 
 For example:
+
 ```bash
-python validate_workflow.py workflows/workflow1/process.xml --functions steps.functions1
+python bpmn_workflows/validate_workflow.py workflows/workflow1/process.xml --functions steps.functions1
 # Generates workflows/workflow1/bpmn_ext.xsd
 
-python validate_workflow.py workflows/workflow2/process.xml --functions steps.functions2
+python bpmn_workflows/validate_workflow.py workflows/workflow2/process.xml --functions steps.functions2
 # Generates workflows/workflow2/bpmn_ext.xsd
 ```
 
@@ -137,10 +135,11 @@ Each generated schema will contain only the operations defined in its respective
 Generate a PNG visualization of your workflow:
 
 ```bash
-python visualize_workflow.py workflows/example_1/example1.xml example1
+python bpmn_workflows/visualize_workflow.py workflows/example_1/example1.xml example1
 ```
 
 This will create `example1.png` in the current directory, showing:
+
 - All workflow nodes and their types
 - Flow connections
 - Gateway conditions
@@ -176,6 +175,7 @@ The `steps/example_functions.py` file contains all the functions that can be ref
 - Output parameters and their types
 
 Example:
+
 ```python
 @bpmn_op(
     name="identify_user_intent",
@@ -187,23 +187,13 @@ def identify_user_intent(state):
     return {"intent": "qa"}
 ```
 
-Current functions include:
-
-- `identify_user_intent`: Analyzes input and returns intent
-- `ask_user`: Clarifies the input query
-- `retrieve_financial_documents`: Retrieves relevant documents
-- `evaluate_relevance`: Evaluates document relevance
-- `rephrase_query`: Rephrases the query
-- `increment_counter`: Increments a counter
-- `summarize`: Summarizes input text
-- `generate_answer`: Generates final answer
-
 ## Creating New Workflows
 
 1. Create a new directory under `workflows/`
 2. Add your BPMN XML file
 3. Create workflow functions with `@bpmn_op` decorators
 4. Reference functions in service tasks with extension elements:
+
 ```xml
 <serviceTask id="MyTask" camunda:expression="${my_function}">
   <extensionElements>
@@ -214,14 +204,16 @@ Current functions include:
   </extensionElements>
 </serviceTask>
 ```
-5. Generate schema: `python generate_ext_schema.py`
-6. Validate workflow: `python validate_workflow.py`
-7. Generate visualization: `python visualize_workflow.py`
+
+5. Generate schema: `python bpmn_ext/generate_ext_schema.py`
+6. Validate workflow: `python bpmn_workflows/validate_workflow.py`
+7. Generate visualization: `python bpmn_workflows/visualize_workflow.py`
 8. Run using the script as shown above
 
 ## BPMN Support
 
 The tool supports the following BPMN elements:
+
 - Service Tasks with extension elements
 - Exclusive Gateways
 - Start Events
@@ -229,6 +221,7 @@ The tool supports the following BPMN elements:
 - Sequence Flows with conditions
 
 Service tasks should:
+
 1. Reference functions using the Camunda expression format: `${functionName}`
 2. Declare operation parameters using extension elements
 3. Match the function's declared inputs and outputs
