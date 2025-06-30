@@ -1,29 +1,55 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import './App.css'
 
-const initialWorkflows = [
-  { id: 1, title: 'Example Research', state: 'In progress', content: 'Loading...' },
-  { id: 2, title: 'Another Workflow', state: 'Waiting for user', content: 'Provide more info...' },
-  { id: 3, title: 'Finished Workflow', state: 'Finished', content: 'Result summary' }
-]
-
 export default function App() {
-  const [workflows, setWorkflows] = useState(initialWorkflows)
-  const [selectedId, setSelectedId] = useState(workflows[0]?.id)
+  const [workflows, setWorkflows] = useState([])
+  const [selectedId, setSelectedId] = useState(null)
+  const [selected, setSelected] = useState(null)
 
-  const startWorkflow = () => {
-    const newId = workflows.length + 1
-    const newWorkflow = {
-      id: newId,
-      title: `New Workflow ${newId}`,
-      state: 'In progress',
-      content: 'New workflow started'
-    }
-    setWorkflows([...workflows, newWorkflow])
-    setSelectedId(newId)
+  useEffect(() => {
+    fetch('/workflows')
+      .then(r => r.json())
+      .then(data => {
+        setWorkflows(data)
+        if (data.length > 0) {
+          setSelectedId(data[0].id)
+        }
+      })
+  }, [])
+
+  useEffect(() => {
+    if (!selectedId) return
+    fetch(`/workflows/${selectedId}`)
+      .then(r => r.json())
+      .then(setSelected)
+  }, [selectedId])
+
+  const startWorkflow = async () => {
+    const query = window.prompt('Enter query for workflow:') || ''
+    const resp = await fetch('/workflows', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ template_id: 'deepresearch', query })
+    })
+    const data = await resp.json()
+    setWorkflows([...workflows, { id: data.id, template: 'deepresearch', status: data.status }])
+    setSelectedId(data.id)
+    setSelected(data)
   }
 
-  const selected = workflows.find(w => w.id === selectedId)
+  const continueWorkflow = async answer => {
+    const resp = await fetch(`/workflows/${selectedId}/continue`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: answer })
+    })
+    const data = await resp.json()
+    setWorkflows(workflows.map(w => (w.id === selectedId ? { ...w, status: data.status } : w)))
+    setSelected(data)
+  }
+
+  const [answer, setAnswer] = useState('')
+  const interrupt = selected?.result?.__interrupt__?.[0]
 
   return (
     <div className="container">
@@ -36,8 +62,8 @@ export default function App() {
               onClick={() => setSelectedId(w.id)}
               className={w.id === selectedId ? 'selected' : ''}
             >
-              <span className="title">{w.title}</span>
-              <span className={`state state-${w.state.replace(/\s+/g, '-').toLowerCase()}`}>{w.state}</span>
+              <span className="title">{w.template}</span>
+              <span className={`state state-${w.status.replace(/\s+/g, '-').toLowerCase()}`}>{w.status}</span>
             </li>
           ))}
         </ul>
@@ -46,9 +72,17 @@ export default function App() {
       <main className="content">
         {selected ? (
           <>
-            <h2>{selected.title}</h2>
-            <p>Status: <strong>{selected.state}</strong></p>
-            <div className="workflow-content">{selected.content}</div>
+            <h2>{selected.template}</h2>
+            <p>Status: <strong>{selected.status}</strong></p>
+            {interrupt ? (
+              <div className="workflow-content">
+                <p>{interrupt.value.questions.join('\n')}</p>
+                <input value={answer} onChange={e => setAnswer(e.target.value)} placeholder="Answer" />
+                <button onClick={() => { continueWorkflow(answer); setAnswer(''); }}>Continue</button>
+              </div>
+            ) : (
+              <pre className="workflow-content">{JSON.stringify(selected.result, null, 2)}</pre>
+            )}
           </>
         ) : (
           <p>Select a workflow to see details</p>

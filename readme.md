@@ -268,9 +268,9 @@ The API will be available at <http://localhost:8000/> by default.
 
 ## Frontend
 
-The `frontend` folder hosts a small React application created with Vite. It will
-communicate with the backend API to show workflow status and allow launching new
-ones.
+The `frontend` folder hosts a small React application created with Vite. It
+communicates with the backend API to list workflow history, launch new runs and
+continue those waiting for user input.
 
 ### Running the frontend
 
