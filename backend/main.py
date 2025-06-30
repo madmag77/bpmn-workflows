@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import uuid
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy import select
@@ -17,19 +18,20 @@ from .database import init_db, get_session
 from .models import WorkflowRun
 from .workflows import list_templates, get_template
 
-POSTGRES_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql+psycopg://postgres:postgres@localhost:5432/postgres",
-)
+POSTGRES_URL = os.getenv("DATABASE_URL")
 
 FN_MAP = {name: getattr(drf, name) for name in dir(drf) if not name.startswith("_")}
 
-app = FastAPI()
 
-
-@app.on_event("startup")
-def startup() -> None:
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
     init_db()
+    yield
+    # Shutdown
+    pass
+
+app = FastAPI(lifespan=lifespan)
 
 
 @app.get("/workflow-templates")
