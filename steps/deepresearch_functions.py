@@ -9,6 +9,7 @@ from bpmn_ext.bpmn_ext import bpmn_op
 from components.web_scraper import search_and_scrape
 import logging
 import traceback
+from langgraph.types import interrupt
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -158,8 +159,14 @@ def analyse_user_query(state: Dict[str, Any]) -> Dict[str, Any]:
 def ask_questions(state: Dict[str, Any]) -> Dict[str, Any]:
     logger.info("Starting ask_questions with state: %s", state)
     try:
-        result = {"clarifications": "Interrested mostly in diagnostics"}
-        logger.info("Successfully completed ask_questions: %s", result)
+        questions = state.get("questions", [])
+        if questions:
+            answer = interrupt({"questions": questions})
+            result = {"clarifications": answer}
+            logger.info("Successfully completed ask_questions: %s", result)
+        else:
+            result = {"clarifications": "no clarifications needed"}
+            logger.info("No questions to ask")
         return result
     except Exception as e:
         logger.error("Error in ask_questions: %s\n%s", str(e), traceback.format_exc())
