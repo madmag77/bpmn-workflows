@@ -6,26 +6,33 @@ This repository contains BPMN workflow definitions and their implementations for
 
 ```
 bpmn-workflows/
-├── README.md
 ├── AGENTS.md
+├── readme.md
 ├── requirements.txt
-├── .pre-commit-config.yaml
-├── workflows/
-│   └── deepresearch/
-│       ├── deepresearch.xml        # BPMN workflow definition
-│       ├── agents.py               # Agent implementations
-│       └── tests/
-│           └── test_deepresearch.py
-└── tests/
-|    └── test_branch_not_clear.py      
-├── steps/                          # implementations of the workflow steps for different workflows
-│   └── deepresearch_functions.py   # implementation of the workflow steps for deepresearch workflow
-├── prompts/                        # prompts for functions in steps
-├── bpmn_workflows/                 # helper functions for interacting with bpmn syntax
-├── run_bpmn_workflow.py           # entry point to run workflows
-├── validate_workflow.py            # should be used to validate workflow in xml format after each change of it
+├── pyproject.toml
+├── LICENSE
 ├── backend/                        # FastAPI service exposing workflow endpoints
+├── bpmn_ext/                       # BPMN extension utilities
+├── bpmn_workflows/                 # helper functions for interacting with bpmn syntax
+│   ├── __init__.py
+│   ├── compat.py
+│   ├── run_bpmn_workflow.py       # entry point to run workflows
+│   ├── validate_workflow.py        # should be used to validate workflow in xml format after each change of it
+│   └── visualize_worklow.py
+├── bpmn_workflows.egg-info/        # package metadata
+├── chainlit_ui/                    # Chainlit UI implementation
+├── components/                     # reusable workflow components
+│   └── web_scraper.py
 ├── frontend/                       # React interface built with Vite
+├── prompts/                        # prompts for functions in steps
+├── scripts/                        # utility scripts
+├── steps/                          # implementations of the workflow steps for different workflows
+│   ├── deepresearch_functions.py   # implementation of the workflow steps for deepresearch workflow
+│   └── example_functions.py
+├── tests/                          # test files
+└── workflows/                      # BPMN workflow definitions
+    ├── deepresearch/
+    └── example_1/
 ```
 
 The `backend` and `frontend` folders contain a FastAPI service and a Vite-based
@@ -53,9 +60,13 @@ The project uses:
 pytest -q
 ```
 
+```bash
+npm test
+```
+
 ## The main work is happening on DeepResearch Workflow
 
-The DeepResearch workflow is defined in `workflows/deepresearch/deepresearch.xml` file in BPNM syntax. 
+The DeepResearch workflow is defined in `workflows/deepresearch/deepresearch.xml` file in BPNM syntax.
 
 ### Workflow Overview
 
@@ -95,5 +106,5 @@ The DeepResearch workflow is defined in `workflows/deepresearch/deepresearch.xml
    - Purpose: Generates the final, polished answer
 
 ### Tests
-Tests for deepresearch are located at `tests/test_deepresearch_questions.py` (common tests) and `tests/test_deepresearch.py` (human in the loop tests) files.
-Don't forget to create and run tests for any new feature created. 
+
+Don't forget to create and run tests for any new feature created.
