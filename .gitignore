@@ -5,4 +5,7 @@ __pycache__/
 .env
 .chainlit
 
+*/node_modules/
+frontend/package-lock.json
+
 .DS_Store
