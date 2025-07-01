@@ -8,15 +8,14 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-import uvicorn
 
 import steps.deepresearch_functions as drf
 from bpmn_workflows.run_bpmn_workflow import run_workflow
 from langgraph.checkpoint.postgres import PostgresSaver
 
-from .database import init_db, get_session
-from .models import WorkflowRun
-from .workflows import list_templates, get_template
+from backend.database import init_db, get_session
+from backend.models import WorkflowRun
+from backend.workflow_loader import list_templates, get_template
 
 POSTGRES_URL = os.getenv("DATABASE_URL")
 
@@ -31,7 +30,7 @@ async def lifespan(app: FastAPI):
     # Shutdown
     pass
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(lifespan=lifespan, docs_url="/api/docs")
 
 
 @app.get("/workflow-templates")
@@ -120,7 +119,3 @@ def continue_workflow(
     db.commit()
     db.refresh(run)
     return {"id": run.id, "status": run.status, "result": result}
-
-
-if __name__ == "__main__":
-    uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=True)

@@ -5,48 +5,6 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Run deepresearch",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "run_bpmn_workflow.py",
-            "console": "integratedTerminal",
-            "args": [
-                "workflows/deepresearch/deepresearch.xml",
-                "--functions",
-                "steps.deepresearch_functions",
-                "--param",
-                "query=What is the impact of artificial intelligence on healthcare?"
-            ]
-        },
-        {
-            "name": "Continue deepresearch",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "run_bpmn_workflow.py",
-            "console": "integratedTerminal",
-            "args": [
-                "workflows/deepresearch/deepresearch.xml",
-                "--functions",
-                "steps.deepresearch_functions",
-                "--resume",
-                "{\"answer\": \"Interrested mostly in diagnostics\"}",
-                "--thread-id",
-                "AskUser:1205369b-51de-5489-ddd3-1abe2e100c98"
-            ]
-        },
-        {
-            "name": "Validate deepresearch",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "validate_workflow.py",
-            "console": "integratedTerminal",
-            "args": [
-                "workflows/deepresearch/deepresearch.xml",
-                "--functions",
-                "steps.deepresearch_functions"
-            ]
-        },
-        {
             "name": "Python: Run Tests",
             "type": "debugpy",
             "request": "launch",
@@ -65,6 +23,14 @@
             "type": "debugpy",
             "request": "launch",
             "program": "chainlit_ui/main.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "Run backend",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "backend_run.py",
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}"
         }
