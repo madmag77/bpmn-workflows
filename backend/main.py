@@ -4,8 +4,10 @@ import json
 import os
 import uuid
 from contextlib import asynccontextmanager
+from enum import Enum
 
 from fastapi import FastAPI, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -22,6 +24,49 @@ POSTGRES_URL = os.getenv("DATABASE_URL")
 FN_MAP = {name: getattr(drf, name) for name in dir(drf) if not name.startswith("_")}
 
 
+class WorkflowStatus(str, Enum):
+    WORKING = "WORKING"
+    WAITING = "WAITING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+
+
+# Pydantic models for request/response validation
+class StartWorkflowRequest(BaseModel):
+    template_name: str
+    query: str = ""
+
+
+class ContinueWorkflowRequest(BaseModel):
+    query: str = ""
+
+
+class WorkflowResponse(BaseModel):
+    id: str
+    status: WorkflowStatus
+    result: dict
+
+
+class WorkflowDetail(BaseModel):
+    id: str
+    template: str
+    status: WorkflowStatus
+    result: dict
+
+
+class WorkflowHistory(BaseModel):
+    id: str
+    template: str
+    status: WorkflowStatus
+    created_at: str
+
+
+class TemplateInfo(BaseModel):
+    id: str
+    name: str
+    path: str
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
@@ -34,31 +79,37 @@ app = FastAPI(lifespan=lifespan, docs_url="/api/docs")
 
 
 @app.get("/workflow-templates")
-def templates() -> list[dict[str, str]]:
-    return list_templates()
+def templates() -> list[TemplateInfo]:
+    templates_data = list_templates()
+    return [TemplateInfo(**template) for template in templates_data]
 
 
 @app.get("/workflows")
-def workflows_history(db: Session = Depends(get_session)) -> list[dict[str, str]]:
+def workflows_history(db: Session = Depends(get_session)) -> list[WorkflowHistory]:
     result = db.execute(select(WorkflowRun))
     runs = result.scalars().all()
     return [
-        {"id": r.id, "template": r.template, "status": r.status, "created_at": r.created_at}
+        WorkflowHistory(
+            id=r.id, 
+            template=r.template, 
+            status=r.status, 
+            created_at=str(r.created_at)
+        )
         for r in runs
     ]
 
 
-@app.get("/workflows/{workflow_id}")
-def workflow_detail(workflow_id: str, db: Session = Depends(get_session)) -> dict:
-    run = db.get(WorkflowRun, workflow_id)
+@app.get("/workflows/{workflow_run_id}")
+def workflow_detail(workflow_run_id: str, db: Session = Depends(get_session)) -> WorkflowDetail:
+    run = db.get(WorkflowRun, workflow_run_id)
     if not run:
         raise HTTPException(404, "Workflow not found")
-    return {
-        "id": run.id,
-        "template": run.template,
-        "status": run.status,
-        "result": run.result,
-    }
+    return WorkflowDetail(
+        id=run.id,
+        template=run.template,
+        status=run.status,
+        result=run.result,
+    )
 
 
 def _run_flow(xml_path: str, params: dict | None, thread_id: str, resume: str | None = None) -> dict:
@@ -76,46 +127,43 @@ def _run_flow(xml_path: str, params: dict | None, thread_id: str, resume: str | 
 
 @app.post("/workflows")
 def start_workflow(
-    data: dict,
+    request: StartWorkflowRequest,
     db: Session = Depends(get_session),
-) -> dict:
-    identifier = data.get("template_name") or data.get("template_id")
-    query = data.get("query", "")
-    tpl = get_template(identifier)
+) -> WorkflowResponse:
+    tpl = get_template(request.template_name)
     if not tpl:
         raise HTTPException(404, "Template not found")
-    workflow_id = str(uuid.uuid4())
-    result = _run_flow(tpl["path"], {"query": query}, workflow_id)
-    status = "WAITING" if "__interrupt__" in result else "COMPLETED"
+    workflow_run_id = str(uuid.uuid4())
+    result = _run_flow(tpl["path"], {"query": request.query}, workflow_run_id)
+    status = WorkflowStatus.WAITING if "__interrupt__" in result else WorkflowStatus.COMPLETED
     run = WorkflowRun(
-        id=workflow_id,
+        id=workflow_run_id,
         template=tpl["id"],
-        thread_id=workflow_id,
+        thread_id=workflow_run_id,
         status=status,
-        query=query,
+        query=request.query,
         result=result,
     )
     db.add(run)
     db.commit()
     db.refresh(run)
-    return {"id": run.id, "status": run.status, "result": result}
+    return WorkflowResponse(id=run.id, status=run.status, result=result)
 
 
-@app.post("/workflows/{workflow_id}/continue")
+@app.post("/workflows/{workflow_run_id}/continue")
 def continue_workflow(
-    workflow_id: str,
-    data: dict,
+    workflow_run_id: str,
+    request: ContinueWorkflowRequest,
     db: Session = Depends(get_session),
-) -> dict:
-    run = db.get(WorkflowRun, workflow_id)
+) -> WorkflowResponse:
+    run = db.get(WorkflowRun, workflow_run_id)
     if not run:
         raise HTTPException(404, "Workflow not found")
-    query = data.get("query", "")
     tpl = get_template(run.template)
-    resume_payload = json.dumps({"answer": query})
-    result = _run_flow(tpl["path"], None, workflow_id, resume=resume_payload)
-    run.status = "WAITING" if "__interrupt__" in result else "COMPLETED"
+    resume_payload = json.dumps({"answer": request.query})
+    result = _run_flow(tpl["path"], None, workflow_run_id, resume=resume_payload)
+    run.status = WorkflowStatus.WAITING if "__interrupt__" in result else WorkflowStatus.COMPLETED
     run.result = result
     db.commit()
     db.refresh(run)
-    return {"id": run.id, "status": run.status, "result": result}
+    return WorkflowResponse(id=run.id, status=run.status, result=result)
