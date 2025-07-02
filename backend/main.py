@@ -25,10 +25,11 @@ FN_MAP = {name: getattr(drf, name) for name in dir(drf) if not name.startswith("
 
 
 class WorkflowStatus(str, Enum):
-    WORKING = "WORKING"
-    WAITING = "WAITING"
-    COMPLETED = "COMPLETED"
-    FAILED = "FAILED"
+    QUEUED = "queued"
+    RUNNING = "running"
+    NEEDS_INPUT = "needs_input"
+    FAILED = "failed"
+    SUCCEEDED = "succeeded"
 
 
 # Pydantic models for request/response validation
@@ -44,7 +45,7 @@ class ContinueWorkflowRequest(BaseModel):
 class WorkflowResponse(BaseModel):
     id: str
     status: WorkflowStatus
-    result: dict
+    result: dict = {}
 
 
 class WorkflowDetail(BaseModel):
@@ -90,10 +91,10 @@ def workflows_history(db: Session = Depends(get_session)) -> list[WorkflowHistor
     runs = result.scalars().all()
     return [
         WorkflowHistory(
-            id=r.id, 
-            template=r.template, 
-            status=r.status, 
-            created_at=str(r.created_at)
+            id=r.id,
+            template=r.graph_name,
+            status=r.state,
+            created_at=str(r.created_at),
         )
         for r in runs
     ]
@@ -106,8 +107,8 @@ def workflow_detail(workflow_run_id: str, db: Session = Depends(get_session)) ->
         raise HTTPException(404, "Workflow not found")
     return WorkflowDetail(
         id=run.id,
-        template=run.template,
-        status=run.status,
+        template=run.graph_name,
+        status=run.state,
         result=run.result,
     )
 
@@ -134,20 +135,18 @@ def start_workflow(
     if not tpl:
         raise HTTPException(404, "Template not found")
     workflow_run_id = str(uuid.uuid4())
-    result = _run_flow(tpl["path"], {"query": request.query}, workflow_run_id)
-    status = WorkflowStatus.WAITING if "__interrupt__" in result else WorkflowStatus.COMPLETED
     run = WorkflowRun(
         id=workflow_run_id,
-        template=tpl["id"],
+        graph_name=tpl["id"],
         thread_id=workflow_run_id,
-        status=status,
+        state=WorkflowStatus.QUEUED,
         query=request.query,
-        result=result,
+        result={},
     )
     db.add(run)
     db.commit()
     db.refresh(run)
-    return WorkflowResponse(id=run.id, status=run.status, result=result)
+    return WorkflowResponse(id=run.id, status=run.state, result={})
 
 
 @app.post("/workflows/{workflow_run_id}/continue")
@@ -159,11 +158,10 @@ def continue_workflow(
     run = db.get(WorkflowRun, workflow_run_id)
     if not run:
         raise HTTPException(404, "Workflow not found")
-    tpl = get_template(run.template)
-    resume_payload = json.dumps({"answer": request.query})
-    result = _run_flow(tpl["path"], None, workflow_run_id, resume=resume_payload)
-    run.status = WorkflowStatus.WAITING if "__interrupt__" in result else WorkflowStatus.COMPLETED
-    run.result = result
+    if run.state != WorkflowStatus.NEEDS_INPUT:
+        raise HTTPException(400, "Workflow not waiting for input")
+    run.resume_payload = json.dumps({"answer": request.query})
+    run.state = WorkflowStatus.QUEUED
     db.commit()
     db.refresh(run)
-    return WorkflowResponse(id=run.id, status=run.status, result=result)
+    return WorkflowResponse(id=run.id, status=run.state, result=run.result or {})
