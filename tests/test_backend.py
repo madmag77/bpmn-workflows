@@ -22,11 +22,10 @@ def test_templates():
 
 
 def test_start_and_continue(monkeypatch):
-    monkeypatch.setattr(main, "_run_flow", lambda *a, **k: {"final_answer": "answer"})
     with TestClient(main.app) as client:
-        start = client.post("/workflows", json={"template_id": "deepresearch", "query": "hi"})
+        start = client.post("/workflows", json={"template_name": "deepresearch", "query": "hi"})
         assert start.status_code == 200
         wf_id = start.json()["id"]
+        assert start.json()["status"] == "queued"
         cont = client.post(f"/workflows/{wf_id}/continue", json={"query": "ok"})
-        assert cont.status_code == 200
-        assert cont.json()["result"]["final_answer"] == "answer"
+        assert cont.status_code == 400  # cannot continue yet
