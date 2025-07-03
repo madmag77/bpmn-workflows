@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import './App.css'
+import { getWorkflows, getWorkflow, startWorkflow as apiStart, continueWorkflow as apiContinue } from './api.js'
 
 export default function App() {
   const [workflows, setWorkflows] = useState([])
@@ -7,43 +8,29 @@ export default function App() {
   const [selected, setSelected] = useState(null)
 
   useEffect(() => {
-    fetch('/workflows')
-      .then(r => r.json())
-      .then(data => {
-        setWorkflows(data)
-        if (data.length > 0) {
-          setSelectedId(data[0].id)
-        }
-      })
+    getWorkflows().then(data => {
+      setWorkflows(data)
+      if (data.length > 0) {
+        setSelectedId(data[0].id)
+      }
+    })
   }, [])
 
   useEffect(() => {
     if (!selectedId) return
-    fetch(`/workflows/${selectedId}`)
-      .then(r => r.json())
-      .then(setSelected)
+    getWorkflow(selectedId).then(setSelected)
   }, [selectedId])
 
   const startWorkflow = async () => {
     const query = window.prompt('Enter query for workflow:') || ''
-    const resp = await fetch('/workflows', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ template_id: 'deepresearch', query })
-    })
-    const data = await resp.json()
+    const data = await apiStart('deepresearch', query)
     setWorkflows([...workflows, { id: data.id, template: 'deepresearch', status: data.status }])
     setSelectedId(data.id)
     setSelected(data)
   }
 
   const continueWorkflow = async answer => {
-    const resp = await fetch(`/workflows/${selectedId}/continue`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: answer })
-    })
-    const data = await resp.json()
+    const data = await apiContinue(selectedId, answer)
     setWorkflows(workflows.map(w => (w.id === selectedId ? { ...w, status: data.status } : w)))
     setSelected(data)
   }
