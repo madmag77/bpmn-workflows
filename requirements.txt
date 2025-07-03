@@ -3,6 +3,7 @@ networkx
 
 langgraph>=0.4
 langgraph-checkpoint-sqlite
+langgraph-checkpoint-postgres
 SQLAlchemy>=2.0
 xmlschema
 pytest

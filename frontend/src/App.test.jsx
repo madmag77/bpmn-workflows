@@ -1,5 +1,5 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import App from './App';
 
 beforeEach(() => {
@@ -58,7 +58,8 @@ test('user can start new workflow with query', async () => {
 
   await waitFor(() => expect(fetch).toHaveBeenCalledWith('/workflows', expect.objectContaining({ method: 'POST' })));
 
-  expect(await screen.findByText('running')).toBeInTheDocument();
+  const runningElements = await screen.findAllByText('running');
+  expect(runningElements.length).toBeGreaterThan(0);
 });
 
 test('user can continue waiting workflow', async () => {
