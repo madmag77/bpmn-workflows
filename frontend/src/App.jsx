@@ -1,13 +1,17 @@
 import { useEffect, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import './App.css'
-import { continueWorkflow as apiContinue, startWorkflow as apiStart, getWorkflow, getWorkflows } from './api.js'
+import { continueWorkflow as apiContinue, startWorkflow as apiStart, getWorkflow, getWorkflows, getWorkflowTemplates } from './api.js'
 
 export default function App() {
   const [workflows, setWorkflows] = useState([])
   const [selectedId, setSelectedId] = useState(null)
   const [selected, setSelected] = useState(null)
   const [expandedSections, setExpandedSections] = useState({})
+  const [templates, setTemplates] = useState([])
+  const [showStartModal, setShowStartModal] = useState(false)
+  const [newTemplate, setNewTemplate] = useState('')
+  const [newQuery, setNewQuery] = useState('')
 
   useEffect(() => {
     getWorkflows().then(data => {
@@ -19,16 +23,37 @@ export default function App() {
   }, [])
 
   useEffect(() => {
+    getWorkflowTemplates().then(data => {
+      setTemplates(data)
+      if (data.length > 0) {
+        setNewTemplate(data[0].id)
+      }
+    })
+  }, [])
+
+  useEffect(() => {
     if (!selectedId) return
     getWorkflow(selectedId).then(setSelected)
   }, [selectedId])
 
-  const startWorkflow = async () => {
-    const query = window.prompt('Enter query for workflow:') || ''
-    const data = await apiStart('deepresearch', query)
-    setWorkflows([...workflows, { id: data.id, template: 'deepresearch', status: data.status }])
+  const openStartModal = () => {
+    setNewQuery('')
+    if (templates.length > 0) {
+      setNewTemplate(templates[0].id)
+    }
+    setShowStartModal(true)
+  }
+
+  const confirmStartWorkflow = async () => {
+    setShowStartModal(false)
+    const data = await apiStart(newTemplate, newQuery)
+    setWorkflows([...workflows, { id: data.id, template: newTemplate, status: data.status }])
     setSelectedId(data.id)
     setSelected(data)
+  }
+
+  const cancelStartWorkflow = () => {
+    setShowStartModal(false)
   }
 
   const continueWorkflow = async answer => {
@@ -91,7 +116,7 @@ export default function App() {
             </li>
           ))}
         </ul>
-        <button className="new-workflow" onClick={startWorkflow}>Start New Workflow</button>
+        <button className="new-workflow" onClick={openStartModal}>Start New Workflow</button>
       </aside>
       <main className="content">
         {selected ? (
@@ -267,6 +292,27 @@ export default function App() {
           </div>
         )}
       </main>
+      {showStartModal && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <h3>Start Workflow</h3>
+            <select data-testid="template-select" value={newTemplate} onChange={e => setNewTemplate(e.target.value)}>
+              {templates.map(t => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
+            <input
+              placeholder="Enter query..."
+              value={newQuery}
+              onChange={e => setNewQuery(e.target.value)}
+            />
+            <div className="modal-buttons">
+              <button className="cancel-btn" onClick={cancelStartWorkflow}>Cancel</button>
+              <button className="start-btn" onClick={confirmStartWorkflow}>Start</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
