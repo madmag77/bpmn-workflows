@@ -46,12 +46,17 @@ async def set_state(
     error: str | None = None,
 ) -> None:
     async with pool.acquire() as conn:
+        try:
+            res_str = json.dumps(result) if result is not None else "{}"
+        except Exception as _:
+            res_str = "{}"
+        
         await conn.execute(
             """
             UPDATE workflow_runs
-            SET state = $2,
-                heartbeat_at = CASE WHEN $2='running' THEN now() ELSE heartbeat_at END,
-                finished_at = CASE WHEN $2 IN ('succeeded','failed') THEN now() END,
+            SET state = $2::VARCHAR,
+                heartbeat_at = CASE WHEN $2::VARCHAR='running' THEN now() ELSE heartbeat_at END,
+                finished_at = CASE WHEN $2::VARCHAR IN ('succeeded','failed') THEN now() END,
                 error = $3,
                 result = COALESCE($4, result)
             WHERE id = $1
@@ -59,7 +64,7 @@ async def set_state(
             job_id,
             new_state,
             error,
-            json.dumps(result) if result is not None else None,
+            res_str,
         )
 
 async def run_langgraph(job: Dict[str, Any]) -> tuple[str, Dict[str, Any]]:

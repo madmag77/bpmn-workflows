@@ -1,11 +1,14 @@
-import { /** @type {WorkflowHistory[]} */ null as _ } from './models.js'
+import { API_BASE_URL } from './constants.js'
+
+// Base URL configuration - can be overridden via environment variables
+const BASE_URL = API_BASE_URL
 
 /**
  * Fetch list of workflow runs.
  * @returns {Promise<WorkflowHistory[]>}
  */
 export async function getWorkflows() {
-  const resp = await fetch('/workflows')
+  const resp = await fetch(`${BASE_URL}/workflows`)
   return resp.json()
 }
 
@@ -15,7 +18,7 @@ export async function getWorkflows() {
  * @returns {Promise<WorkflowDetail>}
  */
 export async function getWorkflow(id) {
-  const resp = await fetch(`/workflows/${id}`)
+  const resp = await fetch(`${BASE_URL}/workflows/${id}`)
   return resp.json()
 }
 
@@ -26,7 +29,7 @@ export async function getWorkflow(id) {
  * @returns {Promise<WorkflowResponse>}
  */
 export async function startWorkflow(template, query) {
-  const resp = await fetch('/workflows', {
+  const resp = await fetch(`${BASE_URL}/workflows`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ template_name: template, query })
@@ -41,7 +44,7 @@ export async function startWorkflow(template, query) {
  * @returns {Promise<WorkflowResponse>}
  */
 export async function continueWorkflow(id, answer) {
-  const resp = await fetch(`/workflows/${id}/continue`, {
+  const resp = await fetch(`${BASE_URL}/workflows/${id}/continue`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ query: answer })

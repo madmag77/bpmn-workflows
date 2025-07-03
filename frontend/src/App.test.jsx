@@ -2,6 +2,11 @@ import '@testing-library/jest-dom';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import App from './App';
 
+// Mock the constants file to use empty string as base URL for tests
+jest.mock('./constants', () => ({
+  API_BASE_URL: ''
+}));
+
 beforeEach(() => {
   global.fetch = jest.fn();
 });

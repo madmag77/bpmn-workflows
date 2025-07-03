@@ -7,13 +7,12 @@ from contextlib import asynccontextmanager
 from enum import Enum
 
 from fastapi import FastAPI, Depends, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 import steps.deepresearch_functions as drf
-from bpmn_workflows.run_bpmn_workflow import run_workflow
-from langgraph.checkpoint.postgres import PostgresSaver
 
 from backend.database import init_db, get_session
 from backend.models import WorkflowRun
@@ -78,6 +77,15 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan, docs_url="/api/docs")
 
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allow all methods (GET, POST, PUT, DELETE, etc.)
+    allow_headers=["*"],  # Allow all headers
+)
+
 
 @app.get("/workflow-templates")
 def templates() -> list[TemplateInfo]:
@@ -111,19 +119,6 @@ def workflow_detail(workflow_run_id: str, db: Session = Depends(get_session)) ->
         status=run.state,
         result=run.result,
     )
-
-
-def _run_flow(xml_path: str, params: dict | None, thread_id: str, resume: str | None = None) -> dict:
-    with PostgresSaver.from_conn_string(POSTGRES_URL) as saver:
-        saver.setup()
-        return run_workflow(
-            xml_path,
-            fn_map=FN_MAP,
-            params=params,
-            thread_id=thread_id,
-            resume=resume,
-            checkpointer=saver,
-        )
 
 
 @app.post("/workflows")

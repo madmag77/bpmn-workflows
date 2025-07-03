@@ -12,7 +12,7 @@ async def worker(pool: asyncpg.pool.Pool, wid: str) -> None:
     while True:
         job = await claim_job(pool, wid)
         if job is None:
-            await asyncio.sleep(1)
+            await asyncio.sleep(10)
             continue
         try:
             new_state, result = await run_langgraph(job)

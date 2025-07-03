@@ -7,4 +7,5 @@ export default {
     '\\.(css)$': 'identity-obj-proxy'
   },
   moduleFileExtensions: ['js', 'jsx'],
+  setupFilesAfterEnv: ['<rootDir>/src/setupTests.js']
 };
