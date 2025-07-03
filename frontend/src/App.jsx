@@ -1,11 +1,13 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import ReactMarkdown from 'react-markdown'
 import './App.css'
-import { getWorkflows, getWorkflow, startWorkflow as apiStart, continueWorkflow as apiContinue } from './api.js'
+import { continueWorkflow as apiContinue, startWorkflow as apiStart, getWorkflow, getWorkflows } from './api.js'
 
 export default function App() {
   const [workflows, setWorkflows] = useState([])
   const [selectedId, setSelectedId] = useState(null)
   const [selected, setSelected] = useState(null)
+  const [expandedSections, setExpandedSections] = useState({})
 
   useEffect(() => {
     getWorkflows().then(data => {
@@ -35,8 +37,43 @@ export default function App() {
     setSelected(data)
   }
 
+  const toggleSection = (section) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }))
+  }
+
   const [answer, setAnswer] = useState('')
   const interrupt = selected?.result?.__interrupt__?.[0]
+
+  // Extract key information from the result
+  const extractWorkflowInfo = (result) => {
+    if (!result) return null
+
+    const query = result.query || ''
+    const finalAnswer = result.final_answer || ''
+    const extendedQuery = result.extended_query || ''
+    const questions = result.questions || []
+    const clarifications = result.clarifications || {}
+    const chunks = result.chunks || []
+    const researchIteration = result.ResearchLoop_iteration || 0
+    const iteration = result.iteration || 0
+
+    return {
+      query,
+      finalAnswer,
+      extendedQuery,
+      questions,
+      clarifications,
+      chunks,
+      researchIteration,
+      iteration,
+      rawResult: result
+    }
+  }
+
+  const workflowInfo = selected ? extractWorkflowInfo(selected.result) : null
 
   return (
     <div className="container">
@@ -50,7 +87,7 @@ export default function App() {
               className={w.id === selectedId ? 'selected' : ''}
             >
               <span className="title">{w.template}</span>
-              <span className={`state state-${w.status.replace(/\s+/g, '-').toLowerCase()}`}>{w.status}</span>
+              <span className={`state state-${w.status.replace(/[\s_]+/g, '-').toLowerCase()}`}>{w.status}</span>
             </li>
           ))}
         </ul>
@@ -59,20 +96,175 @@ export default function App() {
       <main className="content">
         {selected ? (
           <>
-            <h2>{selected.template}</h2>
-            <p>Status: <strong>{selected.status}</strong></p>
+            <div className="workflow-header">
+              <h2>{selected.template}</h2>
+              <span className={`status-badge status-${selected.status.replace(/[\s_]+/g, '-').toLowerCase()}`}>
+                {selected.status}
+              </span>
+            </div>
+
             {interrupt ? (
-              <div className="workflow-content">
-                <p>{interrupt.value.questions.join('\n')}</p>
-                <input value={answer} onChange={e => setAnswer(e.target.value)} placeholder="Answer" />
-                <button onClick={() => { continueWorkflow(answer); setAnswer(''); }}>Continue</button>
+              <div className="interrupt-section">
+                <h3>🤔 Questions</h3>
+                <div className="questions-list">
+                  {interrupt.value.questions.map((question, idx) => (
+                    <p key={idx} className="question">{question}</p>
+                  ))}
+                </div>
+                <div className="answer-input">
+                  <input
+                    value={answer}
+                    onChange={e => setAnswer(e.target.value)}
+                    placeholder="Enter your answer..."
+                    className="answer-field"
+                  />
+                  <button
+                    onClick={() => { continueWorkflow(answer); setAnswer(''); }}
+                    className="continue-btn"
+                  >
+                    Continue
+                  </button>
+                </div>
+              </div>
+            ) : workflowInfo ? (
+              <div className="workflow-result">
+                {/* Initial Query */}
+                <div className="result-section">
+                  <h3>🎯 Initial Query</h3>
+                  <div className="query-box">
+                    <ReactMarkdown>{workflowInfo.query}</ReactMarkdown>
+                  </div>
+                </div>
+
+                {/* Final Answer */}
+                {workflowInfo.finalAnswer && (
+                  <div className="result-section">
+                    <h3>✅ Final Answer</h3>
+                    <div className="final-answer">
+                      <ReactMarkdown>{workflowInfo.finalAnswer}</ReactMarkdown>
+                    </div>
+                  </div>
+                )}
+
+                {/* Extended Query */}
+                {workflowInfo.extendedQuery && (
+                  <div className="result-section">
+                    <div
+                      className="section-header"
+                      onClick={() => toggleSection('extended')}
+                    >
+                      <h3>🔍 Extended Query</h3>
+                      <span className="toggle-icon">
+                        {expandedSections.extended ? '▼' : '▶'}
+                      </span>
+                    </div>
+                    {expandedSections.extended && (
+                      <div className="section-content">
+                        <ReactMarkdown>{workflowInfo.extendedQuery}</ReactMarkdown>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Questions */}
+                {workflowInfo.questions.length > 0 && (
+                  <div className="result-section">
+                    <div
+                      className="section-header"
+                      onClick={() => toggleSection('questions')}
+                    >
+                      <h3>❓ Research Questions</h3>
+                      <span className="toggle-icon">
+                        {expandedSections.questions ? '▼' : '▶'}
+                      </span>
+                    </div>
+                    {expandedSections.questions && (
+                      <div className="section-content">
+                        <ul className="questions-list">
+                          {workflowInfo.questions.map((question, idx) => (
+                            <li key={idx}>{question}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Clarifications */}
+                {Object.keys(workflowInfo.clarifications).length > 0 && (
+                  <div className="result-section">
+                    <div
+                      className="section-header"
+                      onClick={() => toggleSection('clarifications')}
+                    >
+                      <h3>💡 Clarifications</h3>
+                      <span className="toggle-icon">
+                        {expandedSections.clarifications ? '▼' : '▶'}
+                      </span>
+                    </div>
+                    {expandedSections.clarifications && (
+                      <div className="section-content">
+                        <ReactMarkdown>{workflowInfo.clarifications.answer || 'No clarifications available'}</ReactMarkdown>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Research Data */}
+                {workflowInfo.chunks.length > 0 && (
+                  <div className="result-section">
+                    <div
+                      className="section-header"
+                      onClick={() => toggleSection('research')}
+                    >
+                      <h3>📚 Research Data ({workflowInfo.chunks.length} sources)</h3>
+                      <span className="toggle-icon">
+                        {expandedSections.research ? '▼' : '▶'}
+                      </span>
+                    </div>
+                    {expandedSections.research && (
+                      <div className="section-content">
+                        <div className="research-chunks">
+                          {workflowInfo.chunks.map((chunk, idx) => (
+                            <div key={idx} className="chunk">
+                              <div className="chunk-header">Source {idx + 1}</div>
+                              <div className="chunk-content">{chunk}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Raw Data */}
+                <div className="result-section">
+                  <div
+                    className="section-header"
+                    onClick={() => toggleSection('raw')}
+                  >
+                    <h3>🔧 Raw Data</h3>
+                    <span className="toggle-icon">
+                      {expandedSections.raw ? '▼' : '▶'}
+                    </span>
+                  </div>
+                  {expandedSections.raw && (
+                    <div className="section-content">
+                      <pre className="raw-data">{JSON.stringify(workflowInfo.rawResult, null, 2)}</pre>
+                    </div>
+                  )}
+                </div>
               </div>
             ) : (
-              <pre className="workflow-content">{JSON.stringify(selected.result, null, 2)}</pre>
+              <div className="no-result">
+                <p>No result data available</p>
+              </div>
             )}
           </>
         ) : (
-          <p>Select a workflow to see details</p>
+          <div className="no-selection">
+            <p>Select a workflow to see details</p>
+          </div>
         )}
       </main>
     </div>

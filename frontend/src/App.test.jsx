@@ -7,6 +7,13 @@ jest.mock('./constants', () => ({
   API_BASE_URL: ''
 }));
 
+// Mock react-markdown to avoid ES module issues in tests
+jest.mock('react-markdown', () => {
+  return function ReactMarkdown({ children }) {
+    return <div data-testid="markdown-content">{children}</div>;
+  };
+});
+
 beforeEach(() => {
   global.fetch = jest.fn();
 });
@@ -37,7 +44,7 @@ test('workflows display in succeeded, running and waiting states', async () => {
   await screen.findAllByRole('listitem');
 
   expect(document.querySelector('.state-running')).toBeTruthy();
-  expect(document.querySelector('.state-needs_input')).toBeTruthy();
+  expect(document.querySelector('.state-needs-input')).toBeTruthy();
   expect(document.querySelector('.state-succeeded')).toBeTruthy();
 });
 
@@ -89,9 +96,9 @@ test('user can continue waiting workflow', async () => {
   render(<App />);
 
   await screen.findByText('needs_input');
-  await screen.findByPlaceholderText('Answer');
+  await screen.findByPlaceholderText('Enter your answer...');
 
-  fireEvent.change(screen.getByPlaceholderText('Answer'), { target: { value: 'ok' } });
+  fireEvent.change(screen.getByPlaceholderText('Enter your answer...'), { target: { value: 'ok' } });
   fireEvent.click(screen.getByText('Continue'));
 
   await waitFor(() => expect(fetch).toHaveBeenCalledWith('/workflows/5/continue', expect.objectContaining({ method: 'POST' })));
