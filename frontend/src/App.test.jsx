@@ -14,16 +14,16 @@ function mockResponse(data) {
   return Promise.resolve({ ok: true, json: () => Promise.resolve(data) });
 }
 
-test('workflows display in finished, in progress and waiting states', async () => {
+test('workflows display in succeeded, running and waiting states', async () => {
   fetch.mockImplementation((url) => {
     if (url === '/workflows') {
       return mockResponse([
-        { id: '1', template: 'a', status: 'in progress' },
-        { id: '2', template: 'b', status: 'waiting for user' },
-        { id: '3', template: 'c', status: 'finished' }
+        { id: '1', template: 'a', status: 'running' },
+        { id: '2', template: 'b', status: 'needs_input' },
+        { id: '3', template: 'c', status: 'succeeded' }
       ]);
     }
-    return mockResponse({ id: '1', template: 'a', status: 'in progress', result: {} });
+    return mockResponse({ id: '1', template: 'a', status: 'running', result: {} });
   });
 
   render(<App />);
@@ -31,9 +31,9 @@ test('workflows display in finished, in progress and waiting states', async () =
   await waitFor(() => expect(fetch).toHaveBeenCalledWith('/workflows'));
   await screen.findAllByRole('listitem');
 
-  expect(document.querySelector('.state-in-progress')).toBeTruthy();
-  expect(document.querySelector('.state-waiting-for-user')).toBeTruthy();
-  expect(document.querySelector('.state-finished')).toBeTruthy();
+  expect(document.querySelector('.state-running')).toBeTruthy();
+  expect(document.querySelector('.state-needs_input')).toBeTruthy();
+  expect(document.querySelector('.state-succeeded')).toBeTruthy();
 });
 
 test('user can start new workflow with query', async () => {
@@ -42,10 +42,10 @@ test('user can start new workflow with query', async () => {
       return mockResponse([]);
     }
     if (url === '/workflows' && options?.method === 'POST') {
-      return mockResponse({ id: '10', template: 'deepresearch', status: 'in progress', result: {} });
+      return mockResponse({ id: '10', template: 'deepresearch', status: 'running', result: {} });
     }
     if (url === '/workflows/10') {
-      return mockResponse({ id: '10', template: 'deepresearch', status: 'in progress', result: {} });
+      return mockResponse({ id: '10', template: 'deepresearch', status: 'running', result: {} });
     }
     return mockResponse({});
   });
@@ -58,31 +58,31 @@ test('user can start new workflow with query', async () => {
 
   await waitFor(() => expect(fetch).toHaveBeenCalledWith('/workflows', expect.objectContaining({ method: 'POST' })));
 
-  expect(await screen.findByText('in progress')).toBeInTheDocument();
+  expect(await screen.findByText('running')).toBeInTheDocument();
 });
 
 test('user can continue waiting workflow', async () => {
   fetch.mockImplementation((url, options) => {
     if (url === '/workflows' && !options) {
-      return mockResponse([{ id: '5', template: 'deepresearch', status: 'waiting for user' }]);
+      return mockResponse([{ id: '5', template: 'deepresearch', status: 'needs_input' }]);
     }
     if (url === '/workflows/5') {
       return mockResponse({
         id: '5',
         template: 'deepresearch',
-        status: 'waiting for user',
+        status: 'needs_input',
         result: { __interrupt__: [{ value: { questions: ['clarify?'] } }] }
       });
     }
     if (url === '/workflows/5/continue') {
-      return mockResponse({ id: '5', template: 'deepresearch', status: 'finished', result: { final_answer: 'done' } });
+      return mockResponse({ id: '5', template: 'deepresearch', status: 'succeeded', result: { final_answer: 'done' } });
     }
     return mockResponse({});
   });
 
   render(<App />);
 
-  await screen.findByText('waiting for user');
+  await screen.findByText('needs_input');
   await screen.findByPlaceholderText('Answer');
 
   fireEvent.change(screen.getByPlaceholderText('Answer'), { target: { value: 'ok' } });
@@ -90,6 +90,6 @@ test('user can continue waiting workflow', async () => {
 
   await waitFor(() => expect(fetch).toHaveBeenCalledWith('/workflows/5/continue', expect.objectContaining({ method: 'POST' })));
 
-  const elems = await screen.findAllByText('finished');
+  const elems = await screen.findAllByText('succeeded');
   expect(elems.length).toBeGreaterThan(0);
 });

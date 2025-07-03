@@ -2,6 +2,7 @@
   display: flex;
   height: 100vh;
   font-family: sans-serif;
+  background-color: #fff;
 }
 
 .sidebar {
@@ -9,6 +10,7 @@
   border-right: 1px solid #ccc;
   padding: 1rem;
   box-sizing: border-box;
+  background-color: #f5f5f5;
 }
 
 .workflow-list {
@@ -34,16 +36,24 @@
   margin-left: 0.5rem;
 }
 
-.state-in-progress {
+.state-queued {
+  color: gray;
+}
+
+.state-running {
   color: orange;
 }
 
-.state-waiting-for-user {
+.state-needs_input {
   color: blue;
 }
 
-.state-finished {
+.state-succeeded {
   color: green;
+}
+
+.state-failed {
+  color: red;
 }
 
 .new-workflow {
