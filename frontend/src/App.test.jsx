@@ -149,3 +149,33 @@ test('user can continue waiting workflow', async () => {
   const elems = await screen.findAllByText('succeeded');
   expect(elems.length).toBeGreaterThan(0);
 });
+
+test('canceling waiting workflow does not send continue request', async () => {
+  fetch.mockImplementation((url, options) => {
+    if (url === '/workflows' && !options) {
+      return mockResponse([{ id: '7', template: 'deepresearch', status: 'needs_input' }]);
+    }
+    if (url === '/workflow-templates') {
+      return mockResponse([]);
+    }
+    if (url === '/workflows/7') {
+      return mockResponse({
+        id: '7',
+        template: 'deepresearch',
+        status: 'needs_input',
+        result: { __interrupt__: [{ value: { questions: ['clarify?'] } }] }
+      });
+    }
+    return mockResponse({});
+  });
+
+  render(<App />);
+
+  await screen.findByText('needs_input');
+  await screen.findByText('Cancel');
+  fireEvent.click(screen.getByText('Cancel'));
+
+  await waitFor(() => {});
+
+  expect(fetch).not.toHaveBeenCalledWith('/workflows/7/continue', expect.objectContaining({ method: 'POST' }));
+});

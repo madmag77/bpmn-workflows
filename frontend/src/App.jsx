@@ -7,6 +7,7 @@ export default function App() {
   const [workflows, setWorkflows] = useState([])
   const [selectedId, setSelectedId] = useState(null)
   const [selected, setSelected] = useState(null)
+  const [showInterrupt, setShowInterrupt] = useState(false)
   const [expandedSections, setExpandedSections] = useState({})
   const [templates, setTemplates] = useState([])
   const [showStartModal, setShowStartModal] = useState(false)
@@ -36,6 +37,14 @@ export default function App() {
     getWorkflow(selectedId).then(setSelected)
   }, [selectedId])
 
+  useEffect(() => {
+    if (selected && selected.status === 'needs_input' && selected.result?.__interrupt__) {
+      setShowInterrupt(true)
+    } else {
+      setShowInterrupt(false)
+    }
+  }, [selected])
+
   const openStartModal = () => {
     setNewQuery('')
     if (templates.length > 0) {
@@ -60,6 +69,7 @@ export default function App() {
     const data = await apiContinue(selectedId, answer)
     setWorkflows(workflows.map(w => (w.id === selectedId ? { ...w, status: data.status } : w)))
     setSelected(data)
+    setShowInterrupt(false)
   }
 
   const toggleSection = (section) => {
@@ -128,7 +138,7 @@ export default function App() {
               </span>
             </div>
 
-            {interrupt ? (
+            {showInterrupt && interrupt ? (
               <div className="interrupt-section">
                 <h3>🤔 Questions</h3>
                 <div className="questions-list">
@@ -148,6 +158,12 @@ export default function App() {
                     className="continue-btn"
                   >
                     Continue
+                  </button>
+                  <button
+                    onClick={() => { setShowInterrupt(false); setAnswer(''); }}
+                    className="cancel-btn"
+                  >
+                    Cancel
                   </button>
                 </div>
               </div>
