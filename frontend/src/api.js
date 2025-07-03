@@ -13,6 +13,15 @@ export async function getWorkflows() {
 }
 
 /**
+ * Fetch available workflow templates.
+ * @returns {Promise<TemplateInfo[]>}
+ */
+export async function getWorkflowTemplates() {
+  const resp = await fetch(`${BASE_URL}/workflow-templates`)
+  return resp.json()
+}
+
+/**
  * Fetch workflow details.
  * @param {string} id
  * @returns {Promise<WorkflowDetail>}

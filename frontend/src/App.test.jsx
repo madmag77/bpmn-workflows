@@ -35,6 +35,9 @@ test('workflows display in succeeded, running and waiting states', async () => {
         { id: '3', template: 'c', status: 'succeeded' }
       ]);
     }
+    if (url === '/workflow-templates') {
+      return mockResponse([]);
+    }
     return mockResponse({ id: '1', template: 'a', status: 'running', result: {} });
   });
 
@@ -48,25 +51,37 @@ test('workflows display in succeeded, running and waiting states', async () => {
   expect(document.querySelector('.state-succeeded')).toBeTruthy();
 });
 
-test('user can start new workflow with query', async () => {
+test('user can start new workflow with selected template', async () => {
   fetch.mockImplementation((url, options) => {
     if (url === '/workflows' && !options) {
       return mockResponse([]);
     }
+    if (url === '/workflow-templates') {
+      return mockResponse([
+        { id: 'deepresearch', name: 'DeepResearch' },
+        { id: 'example', name: 'Example' }
+      ]);
+    }
     if (url === '/workflows' && options?.method === 'POST') {
-      return mockResponse({ id: '10', template: 'deepresearch', status: 'running', result: {} });
+      const body = JSON.parse(options.body);
+      expect(body.template_name).toBe('example');
+      expect(body.query).toBe('my query');
+      return mockResponse({ id: '10', template: 'example', status: 'running', result: {} });
     }
     if (url === '/workflows/10') {
-      return mockResponse({ id: '10', template: 'deepresearch', status: 'running', result: {} });
+      return mockResponse({ id: '10', template: 'example', status: 'running', result: {} });
     }
     return mockResponse({});
   });
 
-  jest.spyOn(window, 'prompt').mockReturnValue('my query');
-
   render(<App />);
 
   fireEvent.click(screen.getByText(/Start New Workflow/));
+
+  await screen.findByText('Start');
+  fireEvent.change(screen.getByPlaceholderText('Enter query...'), { target: { value: 'my query' } });
+  fireEvent.change(screen.getByTestId('template-select'), { target: { value: 'example' } });
+  fireEvent.click(screen.getByText('Start'));
 
   await waitFor(() => expect(fetch).toHaveBeenCalledWith('/workflows', expect.objectContaining({ method: 'POST' })));
 
@@ -74,10 +89,38 @@ test('user can start new workflow with query', async () => {
   expect(runningElements.length).toBeGreaterThan(0);
 });
 
+test('canceling new workflow does not start it', async () => {
+  fetch.mockImplementation((url, options) => {
+    if (url === '/workflows' && !options) {
+      return mockResponse([]);
+    }
+    if (url === '/workflow-templates') {
+      return mockResponse([{ id: 'deepresearch', name: 'DeepResearch' }]);
+    }
+    if (url === '/workflows' && options?.method === 'POST') {
+      return mockResponse({});
+    }
+    return mockResponse({});
+  });
+
+  render(<App />);
+
+  fireEvent.click(screen.getByText(/Start New Workflow/));
+  await screen.findByText('Start');
+  fireEvent.click(screen.getByText('Cancel'));
+
+  await waitFor(() => {});
+
+  expect(fetch).not.toHaveBeenCalledWith('/workflows', expect.objectContaining({ method: 'POST' }));
+});
+
 test('user can continue waiting workflow', async () => {
   fetch.mockImplementation((url, options) => {
     if (url === '/workflows' && !options) {
       return mockResponse([{ id: '5', template: 'deepresearch', status: 'needs_input' }]);
+    }
+    if (url === '/workflow-templates') {
+      return mockResponse([]);
     }
     if (url === '/workflows/5') {
       return mockResponse({
