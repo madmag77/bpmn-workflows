@@ -1,11 +1,19 @@
 import '@testing-library/jest-dom';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import App from './App';
+import { fireEvent, render, screen, waitFor, act } from '@testing-library/react';
 
-// Mock the constants file to use empty string as base URL for tests
 jest.mock('./constants', () => ({
-  API_BASE_URL: ''
+  API_BASE_URL: '',
+  POLL_INTERVAL_MS: 10000,
 }));
+
+jest.mock('./timer', () => ({
+  startPolling: jest.fn((cb) => {
+    cb();
+    return 1;
+  }),
+}));
+
+import App from './App';
 
 // Mock react-markdown to avoid ES module issues in tests
 jest.mock('react-markdown', () => {
@@ -178,4 +186,65 @@ test('canceling waiting workflow does not send continue request', async () => {
   await waitFor(() => {});
 
   expect(fetch).not.toHaveBeenCalledWith('/workflows/7/continue', expect.objectContaining({ method: 'POST' }));
+});
+
+test('polls workflows periodically', async () => {
+  fetch.mockImplementation((url) => {
+    if (url === '/workflows') {
+      return mockResponse([]);
+    }
+    if (url === '/workflow-templates') {
+      return mockResponse([]);
+    }
+    return mockResponse({});
+  });
+
+  render(<App />);
+
+  const timer = require('./timer');
+  await waitFor(() => expect(timer.startPolling).toHaveBeenCalledTimes(1));
+});
+
+test('polls selected workflow only when running', async () => {
+  fetch.mockImplementation((url) => {
+    if (url === '/workflows') {
+      return mockResponse([{ id: '1', template: 'a', status: 'running' }]);
+    }
+    if (url === '/workflow-templates') {
+      return mockResponse([]);
+    }
+    if (url === '/workflows/1') {
+      return mockResponse({ id: '1', template: 'a', status: 'running', result: {} });
+    }
+    return mockResponse({});
+  });
+
+  render(<App />);
+
+  await waitFor(() => expect(fetch).toHaveBeenCalledWith('/workflows/1'));
+
+  const timer = require('./timer');
+  expect(timer.startPolling).toHaveBeenCalledTimes(2); // list + selected
+});
+
+test('does not poll selected workflow when not running', async () => {
+  fetch.mockImplementation((url) => {
+    if (url === '/workflows') {
+      return mockResponse([{ id: '1', template: 'a', status: 'succeeded' }]);
+    }
+    if (url === '/workflow-templates') {
+      return mockResponse([]);
+    }
+    if (url === '/workflows/1') {
+      return mockResponse({ id: '1', template: 'a', status: 'succeeded', result: {} });
+    }
+    return mockResponse({});
+  });
+
+  render(<App />);
+
+  await waitFor(() => expect(fetch).toHaveBeenCalledWith('/workflows/1'));
+
+  const timer = require('./timer');
+  expect(timer.startPolling).toHaveBeenCalledTimes(1); // only list
 });

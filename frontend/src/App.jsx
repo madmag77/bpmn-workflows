@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import './App.css'
 import { continueWorkflow as apiContinue, startWorkflow as apiStart, getWorkflow, getWorkflows, getWorkflowTemplates } from './api.js'
+import { POLL_INTERVAL_MS } from './constants.js'
+import { startPolling } from './timer.js'
 
 export default function App() {
   const [workflows, setWorkflows] = useState([])
@@ -15,12 +17,21 @@ export default function App() {
   const [newQuery, setNewQuery] = useState('')
 
   useEffect(() => {
-    getWorkflows().then(data => {
-      setWorkflows(data)
-      if (data.length > 0) {
-        setSelectedId(data[0].id)
-      }
-    })
+    const fetchList = () => {
+      getWorkflows().then(data => {
+        setWorkflows(data)
+        setSelectedId(current => {
+          if (current === null && data.length > 0) {
+            return data[0].id
+          }
+          return current
+        })
+      })
+    }
+
+    fetchList()
+    const id = startPolling(fetchList, POLL_INTERVAL_MS)
+    return () => clearInterval(id)
   }, [])
 
   useEffect(() => {
@@ -34,8 +45,20 @@ export default function App() {
 
   useEffect(() => {
     if (!selectedId) return
+
     getWorkflow(selectedId).then(setSelected)
   }, [selectedId])
+
+  useEffect(() => {
+    if (!selectedId || selected?.status !== 'running') return
+
+    const fetchSelected = () => {
+      getWorkflow(selectedId).then(setSelected)
+    }
+
+    const id = startPolling(fetchSelected, POLL_INTERVAL_MS)
+    return () => clearInterval(id)
+  }, [selectedId, selected?.status])
 
   useEffect(() => {
     if (selected && selected.status === 'needs_input' && selected.result?.__interrupt__) {
