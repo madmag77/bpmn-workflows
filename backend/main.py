@@ -17,6 +17,7 @@ import steps.deepresearch_functions as drf
 from backend.database import init_db, get_session
 from backend.models import WorkflowRun
 from backend.workflow_loader import list_templates, get_template
+from fastapi_mcp import FastApiMCP
 
 POSTGRES_URL = os.getenv("DATABASE_URL")
 
@@ -76,6 +77,7 @@ async def lifespan(app: FastAPI):
     pass
 
 app = FastAPI(lifespan=lifespan, docs_url="/api/docs")
+
 
 # Add CORS middleware
 app.add_middleware(
@@ -160,3 +162,6 @@ def continue_workflow(
     db.commit()
     db.refresh(run)
     return WorkflowResponse(id=run.id, status=run.state, result=run.result or {})
+
+mcp = FastApiMCP(app, name="workflow runner")
+mcp.mount()
