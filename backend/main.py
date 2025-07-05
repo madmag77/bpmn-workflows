@@ -90,13 +90,13 @@ app.add_middleware(
 )
 
 
-@app.get("/workflow-templates")
+@app.get("/workflow-templates", operation_id="getWorkflowTemplates")
 def templates() -> list[TemplateInfo]:
     templates_data = list_templates()
     return [TemplateInfo(**template) for template in templates_data]
 
 
-@app.get("/workflows")
+@app.get("/workflows", operation_id="getWorkflows")
 def workflows_history(db: Session = Depends(get_session)) -> list[WorkflowHistory]:
     result = db.execute(select(WorkflowRun))
     runs = result.scalars().all()
@@ -111,7 +111,7 @@ def workflows_history(db: Session = Depends(get_session)) -> list[WorkflowHistor
     ]
 
 
-@app.get("/workflows/{workflow_run_id}")
+@app.get("/workflows/{workflow_run_id}", operation_id="getWorkflowDetails")
 def workflow_detail(workflow_run_id: str, db: Session = Depends(get_session)) -> WorkflowDetail:
     run = db.get(WorkflowRun, workflow_run_id)
     if not run:
@@ -124,7 +124,7 @@ def workflow_detail(workflow_run_id: str, db: Session = Depends(get_session)) ->
     )
 
 
-@app.post("/workflows")
+@app.post("/workflows", operation_id="startWorkflow")
 def start_workflow(
     request: StartWorkflowRequest,
     db: Session = Depends(get_session),
@@ -147,7 +147,7 @@ def start_workflow(
     return WorkflowResponse(id=run.id, status=run.state, result={})
 
 
-@app.post("/workflows/{workflow_run_id}/continue")
+@app.post("/workflows/{workflow_run_id}/continue", operation_id="continueWorkflow")
 def continue_workflow(
     workflow_run_id: str,
     request: ContinueWorkflowRequest,
@@ -167,7 +167,7 @@ def continue_workflow(
     return WorkflowResponse(id=run.id, status=run.state, result=run.result or {})
 
 
-@app.post("/workflows/{workflow_run_id}/cancel")
+@app.post("/workflows/{workflow_run_id}/cancel", operation_id="cancelWorkflow")
 def cancel_workflow(
     workflow_run_id: str,
     db: Session = Depends(get_session),
