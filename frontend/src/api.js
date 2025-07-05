@@ -60,3 +60,15 @@ export async function continueWorkflow(id, answer) {
   })
   return resp.json()
 }
+
+/**
+ * Cancel a running workflow.
+ * @param {string} id
+ * @returns {Promise<WorkflowResponse>}
+ */
+export async function cancelWorkflow(id) {
+  const resp = await fetch(`${BASE_URL}/workflows/${id}/cancel`, {
+    method: 'POST'
+  })
+  return resp.json()
+}

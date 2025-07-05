@@ -99,10 +99,11 @@ pytest -q
 ```
 
 **Node.js Tests:**
-Frontend tests are located in the `frontend/` directory and can be run using Jest:
+Frontend tests are located in the `frontend/` directory and can be run using Jest. Make sure to install dependencies first:
 
 ```bash
 cd frontend
+npm install
 npm test
 ```
 

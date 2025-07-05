@@ -1,5 +1,5 @@
 /**
- * @typedef {'queued' | 'running' | 'needs_input' | 'failed' | 'succeeded'} WorkflowStatus
+ * @typedef {'queued' | 'running' | 'needs_input' | 'failed' | 'succeeded' | 'canceled'} WorkflowStatus
  */
 
 /**
