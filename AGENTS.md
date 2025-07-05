@@ -11,7 +11,8 @@ bpmn-workflows/
 ├── requirements.txt
 ├── pyproject.toml
 ├── LICENSE
-├── backend/                        # FastAPI service exposing workflow endpoints
+├── backend/                        # FastAPI service exposing REST API endpoints for workflow management
+├── backend_run.py                  # Script to run both backend and worker pool concurrently
 ├── bpmn_ext/                       # BPMN extension utilities
 ├── bpmn_workflows/                 # helper functions for interacting with bpmn syntax
 │   ├── __init__.py
@@ -29,15 +30,20 @@ bpmn-workflows/
 ├── steps/                          # implementations of the workflow steps for different workflows
 │   ├── deepresearch_functions.py   # implementation of the workflow steps for deepresearch workflow
 │   └── example_functions.py
-├── tests/                          # test files
+├── tests/                          # test files (Python tests using pytest)
+├── worker/                         # Background worker implementation
+│   ├── db.py                      # Database interaction for workflow execution
+│   └── worker_pool.py             # Worker pool that processes workflows from database queue
 └── workflows/                      # BPMN workflow definitions
     ├── deepresearch/
     └── example_1/
 ```
 
 The `backend` and `frontend` folders contain a FastAPI service and a Vite-based
-React application. They can be started separately to provide an API and a web
-interface for interacting with workflows.
+React application. The `worker` folder contains a background worker pool that
+processes workflows from the database queue. They can be started separately or
+together using `backend_run.py` to provide an API, web interface, and workflow
+execution system.
 
 ## Development Setup
 
@@ -56,13 +62,69 @@ The project uses:
 
 ### Running Tests
 
+**Python Tests:**
+
 ```bash
 pytest -q
 ```
 
+**Node.js Tests:**
+
 ```bash
+cd frontend
 npm test
 ```
+
+### Running Backend and Workers
+
+You can run both the backend API server and worker pool together:
+
+```bash
+python backend_run.py
+```
+
+This will start:
+
+- FastAPI server on port 8000 (accessible at <http://localhost:8000/api/docs>)
+- Worker pool with configurable concurrency (default: 4 workers)
+- Both services run concurrently and share the same database
+
+### Environment Variables
+
+- `DATABASE_URL` - PostgreSQL connection string
+- `WORKERS` - Number of concurrent workers (default: 4)
+
+## Backend API
+
+The FastAPI backend provides REST endpoints for workflow management:
+
+### Workflow Templates
+
+- `GET /workflow-templates` - List available workflow templates
+
+### Workflow Management
+
+- `POST /workflows` - Start a new workflow
+- `GET /workflows` - List all workflow runs (history)
+- `GET /workflows/{workflow_run_id}` - Get workflow details
+- `POST /workflows/{workflow_run_id}/continue` - Continue a workflow waiting for input
+
+### Workflow Statuses
+
+- `queued` - Workflow is queued for execution
+- `running` - Workflow is currently being processed
+- `needs_input` - Workflow is waiting for user input (human-in-the-loop)
+- `succeeded` - Workflow completed successfully
+- `failed` - Workflow failed with an error
+
+## Worker System
+
+The worker system consists of a background worker pool that:
+
+- Polls the database for queued workflows
+- Executes workflows using the LangGraph framework, which handles workflow checkpointing and state management
+- Supports concurrent workflow execution
+- Manages human-in-the-loop interactions
 
 ## The main work is happening on DeepResearch Workflow
 

@@ -12,8 +12,9 @@ A Python-based tool for executing BPMN workflows using LangGraph. This tool allo
 - `bpmn_ext/generate_ext_schema.py` - Script to generate BPMN extension schema from decorated functions
 - `bpmn_ext/bpmn_ext.py` - Module for BPMN extension support and operation decorators
 - `chainlit_ui/` - Chainlit web interface for the deep research workflow
-- `backend/` - FastAPI service exposing endpoints for running workflows
+- `backend/` - FastAPI service exposing REST API endpoints for workflow management
 - `frontend/` - React interface built with Vite to interact with the backend
+- `worker/` - Background worker implementation that processes workflows from database queue
 - `workflows/` - Directory containing workflows
   - `example_1/` - Example workflow with QA processing logic
   - `deepresearch/` - Deep research workflow
@@ -88,10 +89,21 @@ python bpmn_workflows/run_bpmn_workflow.py workflows/example_1/example1.xml --pa
 
 ### Testing Workflows
 
-The project includes a test suite to verify workflow behavior. Tests are located in the `tests` directory and can be run using pytest:
+The project includes comprehensive test suites for both Python and Node.js components:
+
+**Python Tests:**
+Tests are located in the `tests` directory and can be run using pytest:
 
 ```bash
 pytest -q
+```
+
+**Node.js Tests:**
+Frontend tests are located in the `frontend/` directory and can be run using Jest:
+
+```bash
+cd frontend
+npm test
 ```
 
 ### Validating Workflows
@@ -190,6 +202,68 @@ def identify_user_intent(state):
     # Function implementation
     return {"intent": "qa"}
 ```
+
+## Backend API
+
+The FastAPI backend provides the following REST endpoints:
+
+### Workflow Templates
+
+- `GET /workflow-templates` - List available workflow templates
+- Returns: List of templates with id, name, and path
+
+### Workflow Management
+
+- `POST /workflows` - Start a new workflow
+  - Body: `{"template_name": "string", "query": "string"}`
+  - Returns: `{"id": "string", "status": "queued", "result": {}}`
+
+- `GET /workflows` - List all workflow runs (history)
+  - Returns: List of workflow runs with id, template, status, and created_at
+
+- `GET /workflows/{workflow_run_id}` - Get workflow details
+  - Returns: Workflow details including id, template, status, and result
+
+- `POST /workflows/{workflow_run_id}/continue` - Continue a workflow waiting for input
+  - Body: `{"query": "string"}`
+  - Returns: Updated workflow status
+
+### Workflow Statuses
+
+- `queued` - Workflow is queued for execution
+- `running` - Workflow is currently being processed
+- `needs_input` - Workflow is waiting for user input (human-in-the-loop)
+- `succeeded` - Workflow completed successfully
+- `failed` - Workflow failed with an error
+
+## Worker System
+
+The worker system consists of a background worker pool that:
+
+- Polls the database for queued workflows
+- Executes workflows using the LangGraph framework
+- Handles workflow checkpointing and state management
+- Supports concurrent workflow execution
+- Manages human-in-the-loop interactions
+
+### Running Backend and Workers
+
+You can run both the backend API server and worker pool together:
+
+```bash
+python backend_run.py
+```
+
+This will start:
+
+- FastAPI server on port 8000
+- Worker pool with configurable concurrency (default: 4 workers)
+- Both services run concurrently and share the same database
+
+### Environment Variables
+
+- `DATABASE_URL` - PostgreSQL connection string
+- `WORKERS` - Number of concurrent workers (default: 4)
 
 ## Creating New Workflows
 
