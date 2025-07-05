@@ -188,6 +188,35 @@ test('canceling waiting workflow does not send continue request', async () => {
   expect(fetch).not.toHaveBeenCalledWith('/workflows/7/continue', expect.objectContaining({ method: 'POST' }));
 });
 
+test('user can cancel running workflow', async () => {
+  fetch.mockImplementation((url, options) => {
+    if (url === '/workflows' && !options) {
+      return mockResponse([{ id: '9', template: 'deepresearch', status: 'running' }]);
+    }
+    if (url === '/workflow-templates') {
+      return mockResponse([]);
+    }
+    if (url === '/workflows/9') {
+      return mockResponse({ id: '9', template: 'deepresearch', status: 'running', result: {} });
+    }
+    if (url === '/workflows/9/cancel') {
+      return mockResponse({ id: '9', template: 'deepresearch', status: 'canceled', result: {} });
+    }
+    return mockResponse({});
+  });
+
+  render(<App />);
+
+  await screen.findByText('running');
+  const btn = await screen.findByText('Cancel Workflow');
+  fireEvent.click(btn);
+
+  await waitFor(() => expect(fetch).toHaveBeenCalledWith('/workflows/9/cancel', expect.objectContaining({ method: 'POST' })));
+
+  const canceledElems = await screen.findAllByText('canceled');
+  expect(canceledElems.length).toBeGreaterThan(0);
+});
+
 test('polls workflows periodically', async () => {
   fetch.mockImplementation((url) => {
     if (url === '/workflows') {

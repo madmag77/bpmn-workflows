@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import './App.css'
 import { continueWorkflow as apiContinue, startWorkflow as apiStart, getWorkflow, getWorkflows, getWorkflowTemplates } from './api.js'
+import { cancelWorkflow as apiCancel } from './api.js'
 import { POLL_INTERVAL_MS } from './constants.js'
 import { startPolling } from './timer.js'
 
@@ -95,6 +96,12 @@ export default function App() {
     setShowInterrupt(false)
   }
 
+  const cancelRunningWorkflow = async () => {
+    const data = await apiCancel(selectedId)
+    setWorkflows(workflows.map(w => (w.id === selectedId ? { ...w, status: data.status } : w)))
+    setSelected(data)
+  }
+
   const toggleSection = (section) => {
     setExpandedSections(prev => ({
       ...prev,
@@ -159,6 +166,9 @@ export default function App() {
               <span className={`status-badge status-${selected.status.replace(/[\s_]+/g, '-').toLowerCase()}`}>
                 {selected.status}
               </span>
+              {selected.status === 'running' && (
+                <button className="cancel-btn" onClick={cancelRunningWorkflow}>Cancel Workflow</button>
+              )}
             </div>
 
             {showInterrupt && interrupt ? (

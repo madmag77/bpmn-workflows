@@ -56,10 +56,10 @@ async def set_state(
             UPDATE workflow_runs
             SET state = $2::VARCHAR,
                 heartbeat_at = CASE WHEN $2::VARCHAR='running' THEN now() ELSE heartbeat_at END,
-                finished_at = CASE WHEN $2::VARCHAR IN ('succeeded','failed') THEN now() END,
+                finished_at = CASE WHEN $2::VARCHAR IN ('succeeded','failed','canceled') THEN now() END,
                 error = $3,
                 result = COALESCE($4, result)
-            WHERE id = $1
+            WHERE id = $1 AND state != 'canceled'
             """,
             job_id,
             new_state,

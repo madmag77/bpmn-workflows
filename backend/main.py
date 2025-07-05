@@ -30,6 +30,7 @@ class WorkflowStatus(str, Enum):
     NEEDS_INPUT = "needs_input"
     FAILED = "failed"
     SUCCEEDED = "succeeded"
+    CANCELED = "canceled"
 
 
 # Pydantic models for request/response validation
@@ -155,10 +156,28 @@ def continue_workflow(
     run = db.get(WorkflowRun, workflow_run_id)
     if not run:
         raise HTTPException(404, "Workflow not found")
+    if run.state == WorkflowStatus.CANCELED:
+        raise HTTPException(400, "Workflow was canceled")
     if run.state != WorkflowStatus.NEEDS_INPUT:
         raise HTTPException(400, "Workflow not waiting for input")
     run.resume_payload = json.dumps({"answer": request.query})
     run.state = WorkflowStatus.QUEUED
+    db.commit()
+    db.refresh(run)
+    return WorkflowResponse(id=run.id, status=run.state, result=run.result or {})
+
+
+@app.post("/workflows/{workflow_run_id}/cancel")
+def cancel_workflow(
+    workflow_run_id: str,
+    db: Session = Depends(get_session),
+) -> WorkflowResponse:
+    run = db.get(WorkflowRun, workflow_run_id)
+    if not run:
+        raise HTTPException(404, "Workflow not found")
+    if run.state != WorkflowStatus.RUNNING:
+        raise HTTPException(400, "Workflow not running")
+    run.state = WorkflowStatus.CANCELED
     db.commit()
     db.refresh(run)
     return WorkflowResponse(id=run.id, status=run.state, result=run.result or {})
