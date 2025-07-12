@@ -2,18 +2,25 @@
   "name": "awsl-syntax",
   "displayName": "AWsl Syntax Highlighting",
   "description": "Minimal syntax highlighting for AWsl files",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "publisher": "local",
   "engines": {
     "vscode": "^1.80.0"
   },
-  "categories": ["Programming Languages"],
+  "categories": [
+    "Programming Languages"
+  ],
   "contributes": {
     "languages": [
       {
         "id": "awsl",
-        "aliases": ["AWsl", "awsl"],
-        "extensions": [".awsl"],
+        "aliases": [
+          "AWsl",
+          "awsl"
+        ],
+        "extensions": [
+          ".awsl"
+        ],
         "configuration": "./language-configuration.json"
       }
     ],
