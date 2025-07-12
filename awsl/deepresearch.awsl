@@ -1,0 +1,129 @@
+workflow DeepResearch {
+
+  metadata {
+    description: "Deep research workflow"
+    owner: "deepresearch_team"
+    version: "1.0"
+  }
+
+  inputs {
+    String query
+  }
+
+  outputs {
+    String final_answer
+  }
+
+  # 1. Analyse the user’s query
+  node AnalyseQuery {
+    call analyse_user_query
+    inputs {
+      String query = query
+    }
+    outputs {
+      String extended_query
+      List<String> questions
+    }
+  }
+
+  # 2. If follow-up questions are needed, suspend and ask the user
+  node AskUser {
+    call ask_questions
+    when {
+      AnalyseQuery.questions   # only fire if there are questions to ask
+    }
+    inputs {
+      List<String> questions = AnalyseQuery.questions
+    }
+    outputs {
+      List<String> clarifications
+    }
+    hitl {
+      correlation: "AskUserQuestions",
+      timeout: 24h
+    }
+  }
+
+  # 3. Iterative research loop (up to 10 rounds or until we have a “GOOD” draft)
+  cycle ResearchLoop {
+    inputs {
+      String query              = query
+      List<String> clarifications = AskUser.clarifications
+      String next_query         = ""          # seed for first iteration
+      String answer_draft       = ""          # empty draft to start
+    }
+    outputs {
+      String answer_draft
+    }
+
+    node QueryExtender {
+      call query_extender
+      inputs {
+        String query            = query
+        List<String> clarifications = clarifications
+        String next_query       = next_query
+      }
+      outputs {
+        String extended_query
+      }
+    }
+
+    node Retrieve {
+      call retrieve_from_web
+      inputs {
+        String extended_query = QueryExtender.extended_query
+      }
+      outputs {
+        List<Chunk> chunks
+      }
+    }
+
+    node ProcessInfo {
+      call process_info
+      inputs {
+        String query       = query
+        List<Chunk> chunks = Retrieve.chunks
+        String answer_draft = answer_draft
+      }
+      outputs {
+        String answer_draft
+      }
+    }
+
+    node AnswerValidate {
+      call answer_validate
+      inputs {
+        String answer_draft = ProcessInfo.answer_draft
+      }
+      outputs {
+        Bool   is_enough
+        String next_query
+      }
+    }
+
+    guard {
+      AnswerValidate.is_enough    # exit loop as soon as validation passes
+    }
+    max_iterations: 10
+  }
+
+  # 4. Generate the final answer once the loop completes
+  node FinalAnswer {
+    call final_answer_generation
+    inputs {
+      String query        = query
+      String answer_draft = ResearchLoop.answer_draft
+    }
+    outputs {
+      String final_answer
+    }
+  }
+
+  # 5. Single exit node (no-op)
+  node End {
+    call noop
+    inputs {
+      String final_answer = FinalAnswer.final_answer
+    }
+  }
+}
