@@ -8,7 +8,8 @@ metadata_entry: NAME ":" STRING
 
 inputs_block: "inputs" "{" param_decl* "}"
 outputs_block: "outputs" "{" param_decl* "}"
-param_decl: TYPE NAME ("=" expr)?
+param_decl: TYPE NAME ("=" param_value)?
+param_value: NAME_WITH_DOT | literal
 
 node_block: "node" NAME "{" node_body "}"
 node_body: call_stmt node_element*
@@ -19,9 +20,9 @@ node_element: inputs_block
             | retry_block
             | hitl_block
 
-call_stmt: "call" NAME
+call_stmt: "call" NAME_WITH_DOT
 
-constants_block: "constants" "{" const_entry* "}"
+constants_block: "const" "{" const_entry* "}"
 const_entry: NAME ":" literal
 
 when_clause: "when" "{" expr "}"
@@ -31,17 +32,19 @@ hitl_block: "hitl" "{" "correlation:" STRING "," "timeout:" DURATION "}"
 retry_block: "retry" "{" "attempts:" INT "," "backoff:" NAME "," "policy:" NAME "}"
 
 cycle_block: "cycle" NAME "{" cycle_body "}"
-cycle_body: (inputs_block | outputs_block | node_block)* guard_clause "max_iterations:" INT
+cycle_body: inputs_block  outputs_block node_block* guard_clause "max_iterations:" INT
 
 guard_clause: "guard" "{" expr "}"
 
 TYPE: /[A-Za-z][A-Za-z0-9_<>,]*/
 NAME: /[A-Za-z_][A-Za-z0-9_]*/
+NAME_WITH_DOT: /[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)?/
 DURATION: /[0-9]+[smhd]/
 INT: /[0-9]+/
 STRING: /"[^"]*"/
+BOOL: "false" | "true"
 
-literal: STRING | INT | NAME
+literal: STRING | INT | NAME | BOOL
 expr: /[^}\n]+/
 
 %ignore /\s+/
