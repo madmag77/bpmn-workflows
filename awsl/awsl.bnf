@@ -1,0 +1,48 @@
+?start: workflow
+
+workflow: "workflow" NAME "{" workflow_body "}"
+workflow_body: (metadata_block | inputs_block | outputs_block | node_block | cycle_block)*
+
+metadata_block: "metadata" "{" metadata_entry* "}"
+metadata_entry: NAME ":" STRING
+
+inputs_block: "inputs" "{" param_decl* "}"
+outputs_block: "outputs" "{" param_decl* "}"
+param_decl: TYPE NAME ("=" expr)?
+
+node_block: "node" NAME "{" node_body "}"
+node_body: call_stmt node_element*
+node_element: inputs_block
+            | outputs_block
+            | constants_block
+            | when_clause
+            | retry_block
+            | hitl_block
+
+call_stmt: "call" NAME
+
+constants_block: "constants" "{" const_entry* "}"
+const_entry: NAME ":" literal
+
+when_clause: "when" "{" expr "}"
+
+hitl_block: "hitl" "{" "correlation:" STRING "," "timeout:" DURATION "}"
+
+retry_block: "retry" "{" "attempts:" INT "," "backoff:" NAME "," "policy:" NAME "}"
+
+cycle_block: "cycle" NAME "{" cycle_body "}"
+cycle_body: (inputs_block | outputs_block | node_block)* guard_clause "max_iterations:" INT
+
+guard_clause: "guard" "{" expr "}"
+
+TYPE: /[A-Za-z][A-Za-z0-9_<>,]*/
+NAME: /[A-Za-z_][A-Za-z0-9_]*/
+DURATION: /[0-9]+[smhd]/
+INT: /[0-9]+/
+STRING: /"[^"]*"/
+
+literal: STRING | INT | NAME
+expr: /[^}\n]+/
+
+%ignore /\s+/
+%ignore /#[^\n]*/
