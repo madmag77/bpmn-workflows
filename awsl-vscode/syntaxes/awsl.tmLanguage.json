@@ -1,0 +1,21 @@
+{
+  "scopeName": "source.awsl",
+  "patterns": [
+    {
+      "match": "\\b(workflow|metadata|inputs|outputs|node|call|constants|when|retry|backoff|policy|hitl|cycle|parallel)\\b",
+      "name": "keyword.control.awsl"
+    },
+    {
+      "match": "\"(?:[^\"\\\\]|\\\\.)*\"",
+      "name": "string.quoted.double.awsl"
+    },
+    {
+      "match": "\\b\\d+(?:\\.\\d+)?\\b",
+      "name": "constant.numeric.awsl"
+    },
+    {
+      "match": "#.*$",
+      "name": "comment.line.number-sign.awsl"
+    }
+  ]
+}
