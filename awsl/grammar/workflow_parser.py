@@ -8,6 +8,12 @@ from lark import Lark, Transformer
 def load_grammar() -> str:
     return (Path(__file__).with_name("awsl.bnf")).read_text()
 
+@dataclass
+class Constant:
+    """Represents a constant declaration"""
+    name: str
+    value: Any
+
 
 @dataclass
 class Input:
@@ -56,7 +62,7 @@ class NodeClass:
     when: Optional[str] = None
     hitl: Optional[HitlConfig] = None
     retry: Optional[RetryConfig] = None
-    constants: Dict[str, Any] = field(default_factory=dict)
+    constants: List[Constant] = field(default_factory=list)
 
 
 @dataclass
@@ -77,7 +83,7 @@ class Workflow:
     metadata: Optional[Metadata] = None
     inputs: List[Input] = field(default_factory=list)
     outputs: List[Output] = field(default_factory=list)
-    steps: List[NodeClass | CycleClass] = field(default_factory=list)
+    nodes: List[NodeClass | CycleClass] = field(default_factory=list)
 
 
 class ASTBuilder(Transformer):
@@ -93,7 +99,7 @@ class ASTBuilder(Transformer):
             elif isinstance(it, list) and len(it) > 0 and isinstance(it[0], Output):
                 wf.outputs = it
             elif isinstance(it, (NodeClass, CycleClass)):
-                wf.steps.append(it)
+                wf.nodes.append(it)
         return wf
 
     def workflow_body(self, items):
@@ -114,7 +120,13 @@ class ASTBuilder(Transformer):
     def outputs_block(self, items):
         return [Output(type=param.type, name=param.name, default_value=param.default_value) 
                 for param in items]
-
+    
+    def constants_block(self, items):
+        return [Constant(name=constant.name, value=constant.value) for constant in items]
+    
+    def const_entry(self, items):
+        return Constant(name=items[0], value=items[1])
+    
     def param_decl(self, items):
         if len(items) == 3:
             return Input(type=items[0], name=items[1], default_value=items[2])
@@ -161,6 +173,8 @@ class ASTBuilder(Transformer):
                     info["inputs"] = it
                 elif len(it) > 0 and isinstance(it[0], Output):
                     info["outputs"] = it
+                elif len(it) > 0 and isinstance(it[0], Constant):
+                    info["constants"] = it
         return info
 
     def node_element(self, items):
@@ -219,7 +233,10 @@ class ASTBuilder(Transformer):
         if "#" in text:
             text = text.split("#", 1)[0].strip()
         return text
-
+    
+    def literal(self, items):
+        return items[0]
+    
     def INT(self, token):
         return int(token)
 
@@ -259,41 +276,41 @@ def print_workflow_structure(workflow: Workflow, indent: int = 0) -> None:
             default = f" = {out.default_value}" if out.default_value is not None else ""
             print(f"{prefix}    {out.type} {out.name}{default}")
     
-    print(f"{prefix}  Steps:")
-    for step in workflow.steps:
-        if isinstance(step, NodeClass):
-            print(f"{prefix}    NodeClass: {step.name}")
-            print(f"{prefix}      call: {step.call}")
-            if step.when:
-                print(f"{prefix}      when: {step.when}")
-            if step.inputs:
+    print(f"{prefix}  Nodes:")
+    for node in workflow.nodes:
+        if isinstance(node, NodeClass):
+            print(f"{prefix}    NodeClass: {node.name}")
+            print(f"{prefix}      call: {node.call}")
+            if node.when:
+                print(f"{prefix}      when: {node.when}")
+            if node.inputs:
                 print(f"{prefix}      inputs:")
-                for inp in step.inputs:
+                for inp in node.inputs:
                     default = f" = {inp.default_value}" if inp.default_value is not None else ""
                     print(f"{prefix}        {inp.type} {inp.name}{default}")
-            if step.outputs:
+            if node.outputs:
                 print(f"{prefix}      outputs:")
-                for out in step.outputs:
+                for out in node.outputs:
                     default = f" = {out.default_value}" if out.default_value is not None else ""
                     print(f"{prefix}        {out.type} {out.name}{default}")
-            if step.hitl:
-                print(f"{prefix}      hitl: correlation={step.hitl.correlation}, timeout={step.hitl.timeout}")
-        elif isinstance(step, CycleClass):
-            print(f"{prefix}    CycleClass: {step.name}")
-            print(f"{prefix}      guard: {step.guard}")
-            print(f"{prefix}      max_iterations: {step.max_iterations}")
-            if step.inputs:
+            if node.hitl:
+                print(f"{prefix}      hitl: correlation={node.hitl.correlation}, timeout={node.hitl.timeout}")
+        elif isinstance(node, CycleClass):
+            print(f"{prefix}    CycleClass: {node.name}")
+            print(f"{prefix}      guard: {node.guard}")
+            print(f"{prefix}      max_iterations: {node.max_iterations}")
+            if node.inputs:
                 print(f"{prefix}      inputs:")
-                for inp in step.inputs:
+                for inp in node.inputs:
                     default = f" = {inp.default_value}" if inp.default_value is not None else ""
                     print(f"{prefix}        {inp.type} {inp.name}{default}")
-            if step.outputs:
+            if node.outputs:
                 print(f"{prefix}      outputs:")
-                for out in step.outputs:
+                for out in node.outputs:
                     default = f" = {out.default_value}" if out.default_value is not None else ""
                     print(f"{prefix}        {out.type} {out.name}{default}")
             print(f"{prefix}      nodes:")
-            for node in step.nodes:
+            for node in node.nodes:
                 print(f"{prefix}        NodeClass: {node.name}")
                 print(f"{prefix}          call: {node.call}")
                 if node.when:

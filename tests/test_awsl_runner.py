@@ -1,43 +1,29 @@
 from awsl.run_awsl_workflow import run_workflow
 
-AWSL_PATH = "awsl/deepresearch.awsl"
+AWSL_PATH = "awsl/sample.awsl"
 
 
-def analyse_no_questions(state):
-    return {"extended_query": state.get("query", ""), "questions": []}
-
-
-def ask_questions(state):
-    return {"clarifications": "Interrested mostly in diagnostics"}
-
-
-def query_extender(state):
+def query_extender(state, config):
     return {"extended_query": "extended query"}
 
 
-def retrieve_from_web(state):
+def retrieve_from_web(state, config):
     return {"chunks": ["chunk for hello"]}
 
 
-def process_info(state):
-    return {"answer_draft": "answer draft"}
+def filter_chunks(state, config):
+    assert config.get("metadata", {}).get("llm_model") == "gpt-4o"
+    return {"filtered_chunks": ["chunk for hello"]}
 
 
-def answer_validate_good(state):
-    return {"is_enough": "GOOD", "next_query": ""}
+def final_answer_generation(state, config):
+    return {"final_answer": "final answer from chunks"}
 
 
-def final_answer_generation(state):
-    return {"final_answer": "final answer"}
-
-
-FN_MAP = {
-    "analyse_user_query": analyse_no_questions,
-    "ask_questions": ask_questions,
+FN_MAP = {  
     "query_extender": query_extender,
     "retrieve_from_web": retrieve_from_web,
-    "process_info": process_info,
-    "answer_validate": answer_validate_good,
+    "filter_chunks": filter_chunks,
     "final_answer_generation": final_answer_generation,
 }
 

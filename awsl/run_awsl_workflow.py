@@ -5,20 +5,22 @@ import json
 from typing import Any, Dict, List, Set
 import argparse
 
-from langgraph.graph import StateGraph
-from langgraph.types import Command
+from langgraph.graph import StateGraph, START, END
+from langgraph.types import Command, RunnableConfig
 
-from .grammar.workflow_parser import parse_awsl_to_objects, print_workflow_structure, NodeClass, CycleClass
+from .grammar.workflow_parser import parse_awsl_to_objects, print_workflow_structure, NodeClass, CycleClass, Workflow
 
+START_NODE_NAME = "START_NODE"
 
 class _Noop:
-    def __call__(self, state: Dict[str, Any]) -> Dict[str, Any]:
-        return {}
+    def __call__(self, state: Dict[str, Any], config: RunnableConfig) -> Dict[str, Any]:
+        return state
 
 
 def _eval_value(expr: str, state: Dict[str, Any]):
     if expr is None:
-        return None
+        raise ValueError("Value is None")
+    
     expr = str(expr).strip()
     if expr.startswith("\"") and expr.endswith("\""):
         return expr[1:-1]
@@ -29,40 +31,42 @@ def _eval_value(expr: str, state: Dict[str, Any]):
             return float(expr)
         except ValueError:
             pass
-    if "." in expr:
-        _, field = expr.split(".", 1)
-        return state.get(field)
+    # if "." in expr:
+    #     _, field = expr.split(".", 1)
+    #     return state.get(field)
     return state.get(expr)
 
 
 def _eval_condition(expr: str, state: Dict[str, Any]) -> bool:
     if expr is None:
-        return True
+        raise ValueError("Condition is None")
+    
     expr = str(expr).strip()
     import re
     if any(op in expr for op in ["&&", "||", "==", "!=", " and ", " or ", "<", ">"]):
         expr_py = re.sub(r"([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)", 
                          lambda m: f"state.get('{m.group(2)}')", expr)
         expr_py = re.sub(r"\b[A-Za-z_][A-Za-z0-9_]*\b", lambda m: f"state.get('{m.group(0)}')", expr_py)
-        try:
-            return bool(eval(expr_py, {"state": state}))
-        except Exception:
-            return False
-    else:
-        val = _eval_value(expr, state)
-        if isinstance(val, str):
-            return val.upper() == "GOOD"
-        return bool(val)
+
+        return bool(eval(expr_py, {"state": state}))
+
+    val = _eval_value(expr, state)
+    return bool(val)
 
 
-def make_task(fn_name: str, fn_map: Dict[str, Any], when: str | None = None):
-    def task(state: Dict[str, Any]) -> Dict[str, Any]:
-        if when and not _eval_condition(when, state):
+def make_task(node: NodeClass, fn_map: Dict[str, Any]):
+    func = fn_map.get(node.call)
+    if not callable(func):
+        raise ValueError(f"Function '{node.call}' not provided")
+    
+    def task(state: Dict[str, Any], config: RunnableConfig) -> Dict[str, Any]:
+        if node.when and not _eval_condition(node.when, state):
+            for out in node.outputs:
+                state[out.name] = None
             return state
-        func = fn_map.get(fn_name)
-        if not callable(func):
-            raise ValueError(f"Function '{fn_name}' not provided")
-        update = func(state) or {}
+        metadata = config.get("metadata", {})
+        metadata.update({constant.name: constant.value for constant in node.constants})
+        update = func(state, config = dict(config, **{"metadata": metadata})) or {}
         state.update(update)
         return state
 
@@ -105,96 +109,94 @@ def extract_dependencies(inputs: List, workflow_inputs: Set[str]) -> Set[str]:
             # Check if it's a node reference (contains a dot)
             if "." in default_val and not default_val.startswith('"'):
                 node_name = default_val.split(".")[0]
-                # Only add as dependency if it's not a workflow input
-                if node_name not in workflow_inputs:
-                    dependencies.add(node_name)
+                dependencies.add(node_name)
+            elif default_val in workflow_inputs:
+                dependencies.add(START_NODE_NAME)
+            else:
+                raise ValueError(f"Node {default_val} not found")
     return dependencies
 
 
-def build_graph(path: str, functions: Dict[str, Any], checkpointer: Any | None = None, debug: bool = False):
-    ast = parse_awsl_to_objects(path)
+def build_graph(path: str, functions: Dict[str, Any], checkpointer: Any | None = None, debug: bool = True):
+    workflow: Workflow = parse_awsl_to_objects(path)
     fn_map = dict(functions)
     fn_map.setdefault("noop", _Noop())
 
     graph = StateGraph(dict)
     
     # Get workflow input names
-    workflow_inputs = {inp.name for inp in ast.inputs}
+    workflow_inputs = {inp.name for inp in workflow.inputs}
     
     # Collect all nodes and their dependencies
     all_nodes = {}
     node_dependencies = {}
-    entry_points = []
+    all_dependencies = set()
+     # Add dummy start node
+    graph.add_node(START_NODE_NAME, _Noop())
+    graph.add_edge(START, START_NODE_NAME)
+    all_nodes[START_NODE_NAME] = _Noop()
     
     if debug:
         print("=== DEBUG: Node Dependencies ===")
     
-    for step in ast.steps:
-        if isinstance(step, NodeClass):
-            all_nodes[step.name] = step
-            deps = extract_dependencies(step.inputs, workflow_inputs)
-            node_dependencies[step.name] = deps
+    for node in workflow.nodes:
+        if isinstance(node, NodeClass):
+            all_nodes[node.name] = node
+            deps = extract_dependencies(node.inputs, workflow_inputs)
+            node_dependencies[node.name] = deps
             
             if debug:
-                print(f"Node {step.name}: dependencies = {deps}")
+                print(f"Node {node.name}: dependencies = {deps}")
             
             # Add node to graph
-            graph.add_node(step.name, make_task(step.call, fn_map, step.when))
-            
-            # If no dependencies, it's an entry point
-            if not deps:
-                entry_points.append(step.name)
+            graph.add_node(node.name, make_task(node, fn_map))
                 
-        elif isinstance(step, CycleClass):
+        elif isinstance(node, CycleClass):
             # Handle cycle as a composite node
-            init_name = f"{step.name}_init"
-            exit_name = f"{step.name}_exit"
+            init_name = f"{node.name}_init"
+            exit_name = f"{node.name}_exit"
             
             # Add cycle init node
-            inputs_dict = {inp.name: inp.default_value for inp in step.inputs if inp.default_value is not None}
+            inputs_dict = {inp.name: inp.default_value for inp in node.inputs if inp.default_value is not None}
             graph.add_node(init_name, make_setter(inputs_dict))
             
             # Extract dependencies for the cycle
-            deps = extract_dependencies(step.inputs, workflow_inputs)
+            deps = extract_dependencies(node.inputs, workflow_inputs)
             node_dependencies[init_name] = deps
-            all_nodes[init_name] = step
+            all_nodes[init_name] = node
             
             if debug:
-                print(f"Cycle {step.name} (init): dependencies = {deps}")
-            
-            # If no dependencies, it's an entry point
-            if not deps:
-                entry_points.append(init_name)
-            
+                print(f"Cycle {node.name} (init): dependencies = {deps}")
+
             # Add internal cycle nodes
             first_internal = None
             prev = None
-            for node in step.nodes:
-                graph.add_node(node.name, make_task(node.call, fn_map, node.when))
+            for cycle_node in node.nodes:
+                graph.add_node(cycle_node.name, make_task(cycle_node.call, fn_map, cycle_node.when))
                 if prev:
-                    graph.add_edge(prev, node.name)
-                prev = node.name
+                    graph.add_edge(prev, cycle_node.name)
+                prev = cycle_node.name
                 if first_internal is None:
-                    first_internal = node.name
+                    first_internal = cycle_node.name
             
             # Add cycle exit node and router
             graph.add_node(exit_name, lambda s: s)
-            router = make_cycle_router(step.name, step.guard, first_internal, step.max_iterations)
+            router = make_cycle_router(node.name, node.guard, first_internal, node.max_iterations)
             graph.add_conditional_edges(prev, router)
             graph.add_edge(init_name, first_internal)
             
             # Track the cycle as a unit (using init node as representative)
-            all_nodes[step.name] = step
+            all_nodes[node.name] = node
             # Don't add cycle name to node_dependencies - only init_name should be there
     
     if debug:
-        print(f"Entry points: {entry_points}")
         print("=== Creating dependency edges ===")
+    
     
     # Create dependency-based edges
     for node_name, deps in node_dependencies.items():
         for dep in deps:
-            # Handle cycle dependencies
+            all_dependencies.add(dep)
             if dep in all_nodes and isinstance(all_nodes[dep], CycleClass):
                 # Connect to cycle's exit node
                 if debug:
@@ -205,40 +207,17 @@ def build_graph(path: str, functions: Dict[str, Any], checkpointer: Any | None =
                 if debug:
                     print(f"Adding edge: {dep} -> {node_name}")
                 graph.add_edge(dep, node_name)
-    
-    # Set entry points
-    if len(entry_points) == 1:
-        graph.set_entry_point(entry_points[0])
-    elif len(entry_points) > 1:
-        # Multiple entry points - need to handle this case
-        # For now, just pick the first one
-        graph.set_entry_point(entry_points[0])
-    else:
-        # No entry points found - fallback to first node
-        if ast.steps:
-            first_step = ast.steps[0]
-            if isinstance(first_step, NodeClass):
-                graph.set_entry_point(first_step.name)
-            elif isinstance(first_step, CycleClass):
-                graph.set_entry_point(f"{first_step.name}_init")
-    
-    # Find terminal nodes (nodes with no outgoing edges) for finish point
-    terminal_nodes = []
-    for step in ast.steps:
-        if isinstance(step, NodeClass):
-            # Check if this node is a dependency for any other node
-            is_dependency = any(step.name in deps for deps in node_dependencies.values())
-            if not is_dependency:
-                terminal_nodes.append(step.name)
-        elif isinstance(step, CycleClass):
-            # Check if this cycle is a dependency for any other node  
-            is_dependency = any(step.name in deps for deps in node_dependencies.values())
-            if not is_dependency:
-                terminal_nodes.append(f"{step.name}_exit")
-    
-    # Set finish point
-    if terminal_nodes:
-        graph.set_finish_point(terminal_nodes[0])
+            else:
+                raise ValueError(f"Node {dep} not found")
+
+    output_nodes = set(node_dependencies.keys()) - all_dependencies
+    if len(output_nodes) > 1:
+        raise ValueError(f"There is more than one output node detected: {output_nodes}")
+    if len(output_nodes) == 0:
+        raise ValueError(f"There is no output node detected in {workflow.name}")
+    output_node = output_nodes.pop()
+
+    graph.add_edge(output_node, END)
     
     compiled_graph = graph.compile(checkpointer=checkpointer)
     
