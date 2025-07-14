@@ -4,21 +4,29 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List, Set
 import argparse
-
+from typing_extensions import Annotated, TypedDict
 from langgraph.graph import StateGraph, START, END
 from langgraph.types import Command, RunnableConfig
-from pydantic import BaseModel, ConfigDict
 
 from .grammar.workflow_parser import parse_awsl_to_objects, print_workflow_structure, NodeClass, CycleClass, Workflow
 
 START_NODE_NAME = "START_NODE"
 NOOP_NODE_NAME = "NOOP_NODE"
 
-class GraphState(BaseModel):
-    model_config = ConfigDict(extra='allow')
+def reducer(a: Any, b: Any) -> Any:
+    if b is not None:
+        return b
+    return a
 
-def _Noop(state: Dict[str, Any], config: RunnableConfig) -> Dict[str, Any]:
-    return state
+class GraphState(TypedDict):
+    query: str | None = None
+    extended_query: Annotated[str | None, reducer] = None
+    chunks: Annotated[str | None, reducer] = None
+    final_answer: Annotated[str | None, reducer] = None
+    filtered_chunks: Annotated[str | None, reducer] = None
+
+def _Noop(state: GraphState, config: RunnableConfig) -> GraphState:
+    return {}
 
 
 def _eval_value(expr: str, state: Dict[str, Any]):
@@ -73,7 +81,7 @@ def make_task(node: NodeClass, fn_map: Dict[str, Any]):
         metadata = config.get("metadata", {})
         metadata.update({constant.name: constant.value for constant in node.constants})
         update = func(state, config = dict(config, **{"metadata": metadata})) or {}
-        return dict(state, **update)
+        return update
 
     return task
 
@@ -135,7 +143,7 @@ def build_graph(path: str, functions: Dict[str, Any], checkpointer: Any | None =
     fn_map = dict(functions)
     fn_map.setdefault("noop", _Noop)
 
-    graph = StateGraph(dict)
+    graph = StateGraph(GraphState)
     
     # Get workflow input names
     workflow_inputs = {inp.name for inp in workflow.inputs}
@@ -255,7 +263,7 @@ def run_workflow(workflow_path: str,
         resume_val = json.loads(resume)
         result = app.invoke(Command(resume=resume_val), config)
     else:
-        result = app.invoke(params or {}, config)
+        result = app.invoke(GraphState(**params) if params else {}, config)
     return result
 
 
