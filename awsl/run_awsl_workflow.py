@@ -7,14 +7,18 @@ import argparse
 
 from langgraph.graph import StateGraph, START, END
 from langgraph.types import Command, RunnableConfig
+from pydantic import BaseModel, ConfigDict
 
 from .grammar.workflow_parser import parse_awsl_to_objects, print_workflow_structure, NodeClass, CycleClass, Workflow
 
 START_NODE_NAME = "START_NODE"
+NOOP_NODE_NAME = "NOOP_NODE"
 
-class _Noop:
-    def __call__(self, state: Dict[str, Any], config: RunnableConfig) -> Dict[str, Any]:
-        return state
+class GraphState(BaseModel):
+    model_config = ConfigDict(extra='allow')
+
+def _Noop(state: Dict[str, Any], config: RunnableConfig) -> Dict[str, Any]:
+    return state
 
 
 def _eval_value(expr: str, state: Dict[str, Any]):
@@ -59,16 +63,17 @@ def make_task(node: NodeClass, fn_map: Dict[str, Any]):
     if not callable(func):
         raise ValueError(f"Function '{node.call}' not provided")
     
-    def task(state: Dict[str, Any], config: RunnableConfig) -> Dict[str, Any]:
+    def task(state: GraphState, config: RunnableConfig) -> GraphState:
+        all_inputs_available = all(state.get(inp.name) is not None for inp in node.inputs)
+        if not all_inputs_available:
+            return Command(goto=NOOP_NODE_NAME)
+    
         if node.when and not _eval_condition(node.when, state):
-            for out in node.outputs:
-                state[out.name] = None
-            return state
+            return {out.name: None for out in node.outputs}
         metadata = config.get("metadata", {})
         metadata.update({constant.name: constant.value for constant in node.constants})
         update = func(state, config = dict(config, **{"metadata": metadata})) or {}
-        state.update(update)
-        return state
+        return dict(state, **update)
 
     return task
 
@@ -99,6 +104,14 @@ def make_cycle_router(name: str, guard: str, start_node: str, max_iterations: in
 
     return router
 
+# def make_routing_function(node: NodeClass):
+#     def routing_function(state: Dict[str, Any]):
+#         all_inputs_available = all(state.get(inp.name) is not None for inp in node.inputs)
+#         if not all_inputs_available:
+#             return NOOP_NODE_NAME
+        
+#         return node.name
+#     return routing_function
 
 def extract_dependencies(inputs: List, workflow_inputs: Set[str]) -> Set[str]:
     """Extract node dependencies from input assignments"""
@@ -117,10 +130,10 @@ def extract_dependencies(inputs: List, workflow_inputs: Set[str]) -> Set[str]:
     return dependencies
 
 
-def build_graph(path: str, functions: Dict[str, Any], checkpointer: Any | None = None, debug: bool = True):
+def build_graph(path: str, functions: Dict[str, Any], checkpointer: Any | None = None, debug: bool = False):
     workflow: Workflow = parse_awsl_to_objects(path)
     fn_map = dict(functions)
-    fn_map.setdefault("noop", _Noop())
+    fn_map.setdefault("noop", _Noop)
 
     graph = StateGraph(dict)
     
@@ -132,10 +145,11 @@ def build_graph(path: str, functions: Dict[str, Any], checkpointer: Any | None =
     node_dependencies = {}
     all_dependencies = set()
      # Add dummy start node
-    graph.add_node(START_NODE_NAME, _Noop())
+    graph.add_node(START_NODE_NAME, _Noop)
     graph.add_edge(START, START_NODE_NAME)
-    all_nodes[START_NODE_NAME] = _Noop()
-    
+    all_nodes[START_NODE_NAME] = _Noop
+    graph.add_node(NOOP_NODE_NAME, _Noop)
+
     if debug:
         print("=== DEBUG: Node Dependencies ===")
     
@@ -201,7 +215,7 @@ def build_graph(path: str, functions: Dict[str, Any], checkpointer: Any | None =
                 # Connect to cycle's exit node
                 if debug:
                     print(f"Adding edge: {dep}_exit -> {node_name}")
-                graph.add_edge(f"{dep}_exit", node_name)
+                graph.add_(f"{dep}_exit", node_name)
             elif dep in all_nodes:
                 # Regular node dependency
                 if debug:

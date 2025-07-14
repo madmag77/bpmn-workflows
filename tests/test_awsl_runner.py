@@ -3,20 +3,20 @@ from awsl.run_awsl_workflow import run_workflow
 AWSL_PATH = "awsl/sample.awsl"
 
 
-def query_extender(state, config):
+def query_extender(state: dict, config: dict) -> dict:
     return {"extended_query": "extended query"}
 
 
-def retrieve_from_web(state, config):
+def retrieve_from_web(state: dict, config: dict) -> dict:
     return {"chunks": ["chunk for hello"]}
 
 
-def filter_chunks(state, config):
+def filter_chunks(state: dict, config: dict) -> dict:
     assert config.get("metadata", {}).get("llm_model") == "gpt-4o"
     return {"filtered_chunks": ["chunk for hello"]}
 
 
-def final_answer_generation(state, config):
+def final_answer_generation(state: dict, config: dict) -> dict:
     return {"final_answer": "final answer from chunks"}
 
 
