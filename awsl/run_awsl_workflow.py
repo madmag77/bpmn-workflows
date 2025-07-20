@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 import json
-from typing import Any, Dict, List, Set
+from typing import Any, Dict, List, Set, Type
 import argparse
 from typing_extensions import Annotated, TypedDict
 from langgraph.graph import StateGraph, START, END
@@ -14,20 +14,9 @@ START_NODE_NAME = "START_NODE"
 NOOP_NODE_NAME = "NOOP_NODE"
 
 def reducer(a: Any, b: Any) -> Any:
-    if b is not None:
-        return b
-    return a
+    return b or a
 
-class GraphState(TypedDict):
-    query: str | None = None
-    extended_query: Annotated[str | None, reducer] = None
-    chunks: Annotated[str | None, reducer] = None
-    final_answer: Annotated[str | None, reducer] = None
-    filtered_chunks: Annotated[str | None, reducer] = None
-
-def _Noop(state: GraphState, config: RunnableConfig) -> GraphState:
-    return {}
-
+PropertyType = Annotated[Any | None, reducer]
 
 def _eval_value(expr: str, state: Dict[str, Any]):
     if expr is None:
@@ -66,12 +55,12 @@ def _eval_condition(expr: str, state: Dict[str, Any]) -> bool:
     return bool(val)
 
 
-def make_task(node: NodeClass, fn_map: Dict[str, Any]):
+def make_task(node: NodeClass, fn_map: Dict[str, Any], graphStateType: Type):
     func = fn_map.get(node.call)
     if not callable(func):
         raise ValueError(f"Function '{node.call}' not provided")
     
-    def task(state: GraphState, config: RunnableConfig) -> GraphState:
+    def task(state: graphStateType, config: RunnableConfig) -> graphStateType:
         all_inputs_available = all(state.get(inp.name) is not None for inp in node.inputs)
         if not all_inputs_available:
             return Command(goto=NOOP_NODE_NAME)
@@ -112,14 +101,6 @@ def make_cycle_router(name: str, guard: str, start_node: str, max_iterations: in
 
     return router
 
-# def make_routing_function(node: NodeClass):
-#     def routing_function(state: Dict[str, Any]):
-#         all_inputs_available = all(state.get(inp.name) is not None for inp in node.inputs)
-#         if not all_inputs_available:
-#             return NOOP_NODE_NAME
-        
-#         return node.name
-#     return routing_function
 
 def extract_dependencies(inputs: List, workflow_inputs: Set[str]) -> Set[str]:
     """Extract node dependencies from input assignments"""
@@ -140,10 +121,46 @@ def extract_dependencies(inputs: List, workflow_inputs: Set[str]) -> Set[str]:
 
 def build_graph(path: str, functions: Dict[str, Any], checkpointer: Any | None = None, debug: bool = False):
     workflow: Workflow = parse_awsl_to_objects(path)
+    
+    # Dynamically build fields from workflow inputs, outputs, and all node inputs/outputs
+    field_names = set()
+    
+    # Add workflow inputs and outputs
+    for inp in workflow.inputs:
+        field_names.add(inp.name)
+    for out in workflow.outputs:
+        field_names.add(out.name)
+    
+    # Add node inputs and outputs
+    for node in workflow.nodes:
+        if isinstance(node, NodeClass):
+            for inp in node.inputs:
+                field_names.add(inp.name)
+            for out in node.outputs:
+                field_names.add(out.name)
+        elif isinstance(node, CycleClass):
+            for inp in node.inputs:
+                field_names.add(inp.name)
+            for out in node.outputs:
+                field_names.add(out.name)
+            # Add inputs/outputs from nodes within the cycle
+            for cycle_node in node.nodes:
+                for inp in cycle_node.inputs:
+                    field_names.add(inp.name)
+                for out in cycle_node.outputs:
+                    field_names.add(out.name)
+    
+    # Build the new_fields dictionary
+    new_fields = {field_name: PropertyType for field_name in field_names}
+    graphStateType = TypedDict('GraphState', new_fields)
+
+    def _Noop(state: graphStateType, config: RunnableConfig) -> graphStateType:
+        return {}
+
     fn_map = dict(functions)
     fn_map.setdefault("noop", _Noop)
 
-    graph = StateGraph(GraphState)
+    graph = StateGraph(graphStateType)
     
     # Get workflow input names
     workflow_inputs = {inp.name for inp in workflow.inputs}
@@ -171,7 +188,7 @@ def build_graph(path: str, functions: Dict[str, Any], checkpointer: Any | None =
                 print(f"Node {node.name}: dependencies = {deps}")
             
             # Add node to graph
-            graph.add_node(node.name, make_task(node, fn_map))
+            graph.add_node(node.name, make_task(node, fn_map, graphStateType))
                 
         elif isinstance(node, CycleClass):
             # Handle cycle as a composite node
@@ -263,7 +280,7 @@ def run_workflow(workflow_path: str,
         resume_val = json.loads(resume)
         result = app.invoke(Command(resume=resume_val), config)
     else:
-        result = app.invoke(GraphState(**params) if params else {}, config)
+        result = app.invoke(params or {}, config)
     return result
 
 

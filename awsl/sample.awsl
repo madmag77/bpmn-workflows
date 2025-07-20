@@ -52,6 +52,7 @@ workflow SampleRAGWorkflow {
     call final_answer_generation
     inputs {
       String query        = query
+      String extended_query = QueryExtender.extended_query
       List<Chunk> chunks = FilterChunks.filtered_chunks
     }
     outputs {

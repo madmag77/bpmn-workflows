@@ -17,6 +17,9 @@ def filter_chunks(state: dict, config: dict) -> dict:
 
 
 def final_answer_generation(state: dict, config: dict) -> dict:
+    assert state.get("extended_query") == "extended query"
+    assert state.get("chunks") == ["chunk for hello"]
+    assert state.get("filtered_chunks") == ["chunk for hello"]
     return {"final_answer": "final answer from chunks"}
 
 
