@@ -11,7 +11,7 @@ workflow DeepResearch {
   }
 
   outputs {
-    String final_answer
+    String final_answer = FinalAnswer.final_answer
   }
 
   # 1. Analyse the user’s query
@@ -47,7 +47,7 @@ workflow DeepResearch {
   # 3. Iterative research loop (up to 10 rounds or until we have a “GOOD” draft)
   cycle ResearchLoop {
     inputs {
-      String query              = query
+      String query              = AnalyseQuery.extended_query
       List<String> clarifications = AskUser.clarifications
       String next_query         = ""          # seed for first iteration
       String answer_draft       = ""          # empty draft to start
@@ -116,14 +116,6 @@ workflow DeepResearch {
     }
     outputs {
       String final_answer
-    }
-  }
-
-  # 5. Single exit node (no-op)
-  node End {
-    call noop
-    inputs {
-      String final_answer = FinalAnswer.final_answer
     }
   }
 }
