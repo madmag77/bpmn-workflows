@@ -31,17 +31,21 @@ workflow SampleRAGWorkflow {
     }
     outputs {
       List<Chunk> chunks
+      Bool need_filtering
     }
   }
 
   node FilterChunks {
     call filter_chunks
-    const {
-      llm_model: "gpt-4o"
-    }
     inputs {
       String query       = query
+      Bool need_filtering = Retrieve.need_filtering
       List<Chunk> chunks = Retrieve.chunks
+    }
+    when {
+      Retrieve.need_filtering
+    }    const {
+      llm_model: "gpt-4o"
     }
     outputs {
       List<Chunk> filtered_chunks
@@ -54,8 +58,13 @@ workflow SampleRAGWorkflow {
     inputs {
       String query        = query
       String extended_query = QueryExtender.extended_query
-      List<Chunk> chunks = FilterChunks.filtered_chunks
+      Bool need_filtering = Retrieve.need_filtering
+      List<Chunk> chunks = FilterChunks.filtered_chunks?
+      List<Chunk> chunks = Retrieve.chunks?
       String filtered_chunks_summary = FilterChunks.filtered_chunks_summary?
+    }
+    when {
+      Retrieve.need_filtering and FilterChunks.filtered_chunks or not Retrieve.need_filtering
     }
     outputs {
       String final_answer

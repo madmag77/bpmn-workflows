@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 import json
+import re
 from typing import Any, Dict, List, Set, Type
 import argparse
 from typing_extensions import Annotated, TypedDict
@@ -43,17 +44,14 @@ def _eval_condition(expr: str, state: Dict[str, Any]) -> bool:
         raise ValueError("Condition is None")
     
     expr = str(expr).strip()
-    import re
-    if any(op in expr for op in ["&&", "||", "==", "!=", " and ", " or ", "<", ">"]):
-        expr_py = re.sub(r"([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)", 
-                         lambda m: f"state.get('{m.group(2)}')", expr)
-        expr_py = re.sub(r"\b[A-Za-z_][A-Za-z0-9_]*\b", lambda m: f"state.get('{m.group(0)}')", expr_py)
-
-        return bool(eval(expr_py, {"state": state}))
-
-    val = _eval_value(expr, state)
-    return bool(val)
-
+    # Replace variable names in the expression with their corresponding values from state
+    def repl(match):
+        key = match.group(0)
+        if key in state:
+            return repr(state[key])
+        return "False"
+    expr_py = re.sub(r"([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)", repl, expr)
+    return bool(eval(expr_py))
 
 def make_task(node: NodeClass, fn_map: Dict[str, Any], graphStateType: Type):
     func = fn_map.get(node.call)
@@ -61,16 +59,19 @@ def make_task(node: NodeClass, fn_map: Dict[str, Any], graphStateType: Type):
         raise ValueError(f"Function '{node.call}' not provided")
     
     def task(state: graphStateType, config: RunnableConfig) -> graphStateType:
-        all_inputs_available = all(state.get(inp.name) is not None for inp in node.inputs if not inp.optional)
+        all_inputs_available = all(state.get(inp.default_value) is not None 
+                                   for inp in node.inputs if not inp.optional and inp.default_value is not None)
         if not all_inputs_available:
             return Command(goto=NOOP_NODE_NAME)
     
         if node.when and not _eval_condition(node.when, state):
-            return {out.name: None for out in node.outputs}
+            return Command(goto=NOOP_NODE_NAME)
+        
         metadata = config.get("metadata", {})
         metadata.update({constant.name: constant.value for constant in node.constants})
         update = func(state, config = dict(config, **{"metadata": metadata})) or {}
-        return update
+        update_with_node_name = {node.name + "." + k: v for k, v in update.items()}
+        return update_with_node_name
 
     return task
 
@@ -93,8 +94,6 @@ def make_cycle_router(name: str, guard: str, start_node: str, max_iterations: in
         count = state.get(iteration_key, 0) + 1
         state[iteration_key] = count
         state["iteration"] = count
-        # debug print can be removed later
-        # print(f"cycle {name} iteration {count} guard={_eval_condition(guard, state)}")
         if _eval_condition(guard, state) or count >= max_iterations:
             return f"{name}_exit"
         return start_node
@@ -134,21 +133,21 @@ def build_graph(path: str, functions: Dict[str, Any], checkpointer: Any | None =
     # Add node inputs and outputs
     for node in workflow.nodes:
         if isinstance(node, NodeClass):
-            for inp in node.inputs:
-                field_names.add(inp.name)
+            # for inp in node.inputs:
+            #     field_names.add(node.name + "." + inp.name)
             for out in node.outputs:
-                field_names.add(out.name)
+                field_names.add(node.name + "." + out.name)
         elif isinstance(node, CycleClass):
-            for inp in node.inputs:
-                field_names.add(inp.name)
+            # for inp in node.inputs:
+            #     field_names.add(inp.name)
             for out in node.outputs:
-                field_names.add(out.name)
+                field_names.add(node.name + "." + out.name)
             # Add inputs/outputs from nodes within the cycle
             for cycle_node in node.nodes:
-                for inp in cycle_node.inputs:
-                    field_names.add(inp.name)
+                # for inp in cycle_node.inputs:
+                #     field_names.add(inp.name)
                 for out in cycle_node.outputs:
-                    field_names.add(out.name)
+                    field_names.add(node.name + "." + out.name)
     
     # Build the new_fields dictionary
     new_fields = {field_name: PropertyType for field_name in field_names}
