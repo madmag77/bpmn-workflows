@@ -33,7 +33,7 @@ workflow DeepResearch {
       AnalyseQuery.questions   # only fire if there are questions to ask
     }
     inputs {
-      List<String> questions = AnalyseQuery.questions
+      List<String> questions = AnalyseQuery.questions?
     }
     outputs {
       List<String> clarifications
@@ -46,9 +46,12 @@ workflow DeepResearch {
 
   # 3. Iterative research loop (up to 10 rounds or until we have a “GOOD” draft)
   cycle ResearchLoop {
+    when {
+     (AnalyseQuery.questions && AskUser.clarifications) || (!AnalyseQuery.questions) 
+    }
     inputs {
       String query              = AnalyseQuery.extended_query
-      List<String> clarifications = AskUser.clarifications
+      List<String> clarifications = AskUser.clarifications?
       String next_query         = ""          # seed for first iteration
       String answer_draft       = ""          # empty draft to start
     }
