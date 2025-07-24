@@ -1,6 +1,7 @@
 # Requirements
 
 Step 1 – Core Assumptions
+
  1. Runtime executes an explicit Directed Acyclic Graph extended with guarded loops (cycle) and waits (hitl); the DSL compiles into that representation.
  2. Nodes are external functions (language-agnostic) exposing name, inputs, outputs, and an immutable constants dictionary; they contain no internal logic.
  3. Long-running human/agent wait nodes suspend execution and produce a resumable state snapshot.
@@ -26,10 +27,13 @@ F9 Metadata: each workflow or node may include a `metadata { description: <strin
 F10 Error-handling (retry): per-node `retry { attempts: <int>; backoff: <strategy>; policy: <fail_policy> }`; no catch or finally.
 F11 Workflow interface: top-level inputs { … } and outputs { … } blocks declare the workflow’s public parameters.
 F12 Constants: each node may contain a `constants { <key>: <literal>; … }` dictionary for arbitrary, immutable parameters.
+F13 Optional inputs and outputs are denoted by a trailing `?` (e.g. `String clarifications = AskUser.clarifications?`).
+    Optional inputs do not create execution dependencies and their absence does not block node execution.
 
 ⸻
 
 Step 3 – Execution-Semantics Requirements
+
  1. Engine derives the ready-to-run set by implicit data-dependency analysis; scheduling order is otherwise undefined.
  2. Parallel blocks map to concurrent execution units; outer sequence order is preserved.
  3. On HITL nodes the engine emits a callback/outbox event and persists state; resumption requires the external token.
@@ -55,6 +59,7 @@ Step 3 – Execution-Semantics Requirements
 | **hitl**      | clause       | Human-or-agent wait configuration                                                              |
 | **cycle**     | block        | Guarded loop construct, optionally with inner parallel                                         |
 | **parallel**  | block        | Special construct specifies N copies of its sub-workflow to run concurrently; joins with “all” |
+| **?**         | modifier     | Marks an input as optional; node can execute without the value |
 
 ### **Types**
 

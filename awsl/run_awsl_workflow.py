@@ -61,7 +61,7 @@ def make_task(node: NodeClass, fn_map: Dict[str, Any], graphStateType: Type):
         raise ValueError(f"Function '{node.call}' not provided")
     
     def task(state: graphStateType, config: RunnableConfig) -> graphStateType:
-        all_inputs_available = all(state.get(inp.name) is not None for inp in node.inputs)
+        all_inputs_available = all(state.get(inp.name) is not None for inp in node.inputs if not inp.optional)
         if not all_inputs_available:
             return Command(goto=NOOP_NODE_NAME)
     

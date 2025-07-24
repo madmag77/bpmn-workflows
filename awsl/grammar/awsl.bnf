@@ -8,7 +8,7 @@ metadata_entry: NAME ":" STRING
 
 inputs_block: "inputs" "{" param_decl* "}"
 outputs_block: "outputs" "{" param_decl* "}"
-param_decl: TYPE NAME ("=" param_value)?
+param_decl: TYPE NAME ("=" param_value)? QUESTION?
 param_value: NAME_WITH_DOT | literal
 
 node_block: "node" NAME "{" node_body "}"
@@ -43,6 +43,7 @@ DURATION: /[0-9]+[smhd]/
 INT: /[0-9]+/
 STRING: /"[^"]*"/
 BOOL: "false" | "true"
+QUESTION: "?"
 
 literal: STRING | INT | NAME | BOOL
 expr: /[^}\n]+/

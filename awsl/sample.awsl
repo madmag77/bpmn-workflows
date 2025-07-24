@@ -45,6 +45,7 @@ workflow SampleRAGWorkflow {
     }
     outputs {
       List<Chunk> filtered_chunks
+      String filtered_chunks_summary?
     }
   }
 
@@ -54,6 +55,7 @@ workflow SampleRAGWorkflow {
       String query        = query
       String extended_query = QueryExtender.extended_query
       List<Chunk> chunks = FilterChunks.filtered_chunks
+      String filtered_chunks_summary = FilterChunks.filtered_chunks_summary?
     }
     outputs {
       String final_answer

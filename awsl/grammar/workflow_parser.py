@@ -21,7 +21,7 @@ class Input:
     type: str
     name: str
     default_value: Optional[Any] = None
-
+    optional: bool = False
 
 @dataclass
 class Output:
@@ -29,7 +29,7 @@ class Output:
     type: str
     name: str
     default_value: Optional[Any] = None
-
+    optional: bool = False
 
 @dataclass
 class Metadata:
@@ -114,11 +114,11 @@ class ASTBuilder(Transformer):
         return metadata
 
     def inputs_block(self, items):
-        return [Input(type=param.type, name=param.name, default_value=param.default_value) 
+        return [Input(type=param.type, name=param.name, default_value=param.default_value, optional=param.optional) 
                 for param in items]
 
     def outputs_block(self, items):
-        return [Output(type=param.type, name=param.name, default_value=param.default_value) 
+        return [Output(type=param.type, name=param.name, default_value=param.default_value, optional=param.optional) 
                 for param in items]
     
     def constants_block(self, items):
@@ -128,8 +128,11 @@ class ASTBuilder(Transformer):
         return Constant(name=items[0], value=items[1])
     
     def param_decl(self, items):
-        if len(items) == 3:
+        if len(items) == 4:
+            return Input(type=items[0], name=items[1], default_value=items[2], optional=items[3])
+        elif len(items) == 3:
             return Input(type=items[0], name=items[1], default_value=items[2])
+        
         return Input(type=items[0], name=items[1])
 
     def param_value(self, items):
@@ -253,6 +256,8 @@ class ASTBuilder(Transformer):
     def BOOL(self, token):
         return str(token).lower() == "true"
     
+    def QUESTION(self, token):
+        return True
 
 def print_workflow_structure(workflow: Workflow, indent: int = 0) -> None:
     """Pretty print the workflow object hierarchy"""
