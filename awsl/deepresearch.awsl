@@ -52,8 +52,6 @@ workflow DeepResearch {
     inputs {
       String query              = AnalyseQuery.extended_query
       List<String> clarifications = AskUser.clarifications?
-      String next_query         = ""          # seed for first iteration
-      String answer_draft       = ""          # empty draft to start
     }
     outputs {
       String answer_draft
