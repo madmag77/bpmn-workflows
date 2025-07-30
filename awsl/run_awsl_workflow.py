@@ -130,22 +130,14 @@ def build_graph(path: str, functions: Dict[str, Any], checkpointer: Any | None =
     for out in workflow.outputs:
         field_names.add(out.name)
     
-    # Add node inputs and outputs
     for node in workflow.nodes:
         if isinstance(node, NodeClass):
-            # for inp in node.inputs:
-            #     field_names.add(node.name + "." + inp.name)
             for out in node.outputs:
                 field_names.add(node.name + "." + out.name)
         elif isinstance(node, CycleClass):
-            # for inp in node.inputs:
-            #     field_names.add(inp.name)
             for out in node.outputs:
                 field_names.add(node.name + "." + out.name)
-            # Add inputs/outputs from nodes within the cycle
             for cycle_node in node.nodes:
-                # for inp in cycle_node.inputs:
-                #     field_names.add(inp.name)
                 for out in cycle_node.outputs:
                     field_names.add(node.name + "." + out.name)
     

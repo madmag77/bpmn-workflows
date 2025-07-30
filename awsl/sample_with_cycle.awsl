@@ -20,7 +20,7 @@ workflow SampleRAGWorkflow {
         String query = query
     }
     outputs {
-        List<Chunk> final_chunks 
+        List<Chunk> final_chunks = Retrieve.chunks
     }
     node QueryExtender {
         call query_extender
@@ -39,7 +39,7 @@ workflow SampleRAGWorkflow {
            String extended_query = QueryExtender.extended_query
         }
         outputs {
-           List<Chunk> chunks
+           (append) List<Chunk> chunks
            Bool need_filtering
         }
     }

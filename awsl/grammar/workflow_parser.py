@@ -2,11 +2,15 @@
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from dataclasses import dataclass, field
-
+from enum import Enum
 from lark import Lark, Transformer
 
 def load_grammar() -> str:
     return (Path(__file__).with_name("awsl.bnf")).read_text()
+
+class Reducer(Enum):
+    LAST = "last"
+    APPEND = "append"
 
 @dataclass
 class Constant:
@@ -28,6 +32,7 @@ class Output:
     """Represents an output parameter declaration"""
     type: str
     name: str
+    reducer: Reducer = Reducer.LAST
     default_value: Optional[Any] = None
     optional: bool = False
 
@@ -114,12 +119,10 @@ class ASTBuilder(Transformer):
         return metadata
 
     def inputs_block(self, items):
-        return [Input(type=param.type, name=param.name, default_value=param.default_value, optional=param.optional) 
-                for param in items]
+        return items
 
     def outputs_block(self, items):
-        return [Output(type=param.type, name=param.name, default_value=param.default_value, optional=param.optional) 
-                for param in items]
+        return items
     
     def constants_block(self, items):
         return [Constant(name=constant.name, value=constant.value) for constant in items]
@@ -128,17 +131,24 @@ class ASTBuilder(Transformer):
         return Constant(name=items[0], value=items[1])
     
     def param_decl(self, items):
-        if len(items) == 4:
-            return Input(type=items[0], name=items[1], default_value=items[2], optional=items[3])
-        elif len(items) == 3:
-            return Input(type=items[0], name=items[1], default_value=items[2])
-        
-        return Input(type=items[0], name=items[1])
+        type_name = items[0]
+        name = items[1]
+        default_value = items[2] if len(items) > 2 else None
+        optional = items[3] if len(items) > 3 else False
 
+        return Input(type=type_name, name=name, default_value=default_value, optional=optional)
+    
+    def output_param_decl(self, items):
+        reducer = items[0] if isinstance(items[0], Reducer) else None
+        reducer_offset = 1 if reducer else 0
+        type_name = items[0+reducer_offset]
+        name = items[1+reducer_offset]
+        default_value = items[2+reducer_offset] if len(items) > 2 + reducer_offset else None
+        optional = items[3+reducer_offset] if len(items) > 3 + reducer_offset else False
+
+        return Output(reducer=reducer, type=type_name, name=name, default_value=default_value, optional=optional)
+    
     def param_value(self, items):
-        # Extract the actual value from the parse tree
-        if hasattr(items[0], 'children') and items[0].children:
-            return items[0].children[0]
         return items[0]
 
     def metadata_entry(self, items):
@@ -237,6 +247,12 @@ class ASTBuilder(Transformer):
             text = text.split("#", 1)[0].strip()
         return text
     
+    def reducer_decl(self, items):
+        return Reducer(items[0])
+    
+    def default_value(self, items):
+        return items[0]
+    
     def literal(self, items):
         return items[0]
     
@@ -258,6 +274,12 @@ class ASTBuilder(Transformer):
     
     def QUESTION(self, token):
         return True
+    
+    def REDUCER(self, token):
+        return str(token)
+    
+    def NAME_WITH_DOT(self, token):
+        return str(token)
 
 def print_workflow_structure(workflow: Workflow, indent: int = 0) -> None:
     """Pretty print the workflow object hierarchy"""
