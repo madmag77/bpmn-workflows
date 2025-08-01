@@ -35,7 +35,7 @@ hitl_block: "hitl" "{" "correlation:" STRING "," "timeout:" DURATION "}"
 retry_block: "retry" "{" "attempts:" INT "," "backoff:" NAME "," "policy:" NAME "}"
 
 cycle_block: "cycle" NAME "{" cycle_body "}"
-cycle_body: inputs_block  outputs_block node_block* guard_clause "max_iterations:" INT
+cycle_body: inputs_block outputs_block node_block* guard_clause "max_iterations:" INT
 
 guard_clause: "guard" "{" expr "}"
 

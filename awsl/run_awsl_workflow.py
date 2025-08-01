@@ -33,9 +33,6 @@ def _eval_value(expr: str, state: Dict[str, Any]):
             return float(expr)
         except ValueError:
             pass
-    # if "." in expr:
-    #     _, field = expr.split(".", 1)
-    #     return state.get(field)
     return state.get(expr)
 
 
@@ -76,26 +73,42 @@ def make_task(node: NodeClass, fn_map: Dict[str, Any], graphStateType: Type):
     return task
 
 
-def make_setter(assignments: Dict[str, str]):
-    def setter(state: Dict[str, Any]) -> Dict[str, Any]:
+def make_cycle_init_node(cycle_name: str, assignments: Dict[str, str], graphStateType: Type):
+    iteration_key = f"{cycle_name}.iteration_counter"
+    def cycle_init(state: graphStateType) -> graphStateType:
+        count = state.get(iteration_key, 0) + 1
+        update = {iteration_key: count}
         for k, expr in assignments.items():
             val = _eval_value(expr, state)
             if val is not None:
-                state[k] = val
-        return state
+                update[cycle_name + "." + k] = val
+        return update
 
-    return setter
+    return cycle_init
 
+def make_cycle_guard_node(cycle: CycleClass, graphStateType: Type):
+    def cycle_guard(state: graphStateType) -> graphStateType:
+        # need to take into account iteration counter because outputs will be there even after first iteration
+        all_inputs_available = all(state.get(inp.default_value) is not None 
+                                   for inp in cycle.outputs if inp.default_value is not None)
+        if not all_inputs_available:
+            return Command(goto=NOOP_NODE_NAME)
+        update = {}
+        # for k, expr in assignments.items():
+        #     val = _eval_value(expr, state)
+        #     if val is not None:
+        #         update[cycle_name + "." + k] = val
+        return update
 
-def make_cycle_router(name: str, guard: str, start_node: str, max_iterations: int):
-    iteration_key = f"{name}_iteration"
+    return cycle_guard
+
+def make_cycle_router(cycle_name: str, guard: str, start_node: str, exit_node: str, max_iterations: int):
+    iteration_key = f"{cycle_name}.iteration_counter"
 
     def router(state: Dict[str, Any]):
-        count = state.get(iteration_key, 0) + 1
-        state[iteration_key] = count
-        state["iteration"] = count
+        count = state.get(iteration_key, 0)
         if _eval_condition(guard, state) or count >= max_iterations:
-            return f"{name}_exit"
+            return exit_node
         return start_node
 
     return router
@@ -114,9 +127,24 @@ def extract_dependencies(inputs: List, workflow_inputs: Set[str]) -> Set[str]:
             elif default_val in workflow_inputs:
                 dependencies.add(START_NODE_NAME)
             else:
-                raise ValueError(f"Node {default_val} not found")
+                # It's a constant or a workflow input
+                pass
     return dependencies
 
+def extract_in_cycle_dependencies(inputs: List, cycle_inputs: Set[str], cycle_start_name: str) -> Set[str]:
+    """Extract node dependencies from input assignments"""
+    dependencies = set()
+    for inp in inputs:
+        if inp.default_value is not None:
+            default_val = str(inp.default_value).strip()
+            if default_val in cycle_inputs:
+                dependencies.add(cycle_start_name)
+            elif "." in default_val and not default_val.startswith('"'):
+                node_name = default_val.split(".")[0]
+                dependencies.add(node_name)
+            else:
+                raise ValueError(f"Node {default_val} not found")
+    return dependencies
 
 def build_graph(path: str, functions: Dict[str, Any], checkpointer: Any | None = None, debug: bool = False):
     workflow: Workflow = parse_awsl_to_objects(path)
@@ -135,11 +163,13 @@ def build_graph(path: str, functions: Dict[str, Any], checkpointer: Any | None =
             for out in node.outputs:
                 field_names.add(node.name + "." + out.name)
         elif isinstance(node, CycleClass):
+            iteration_key = f"{node.name}.iteration_counter"
+            field_names.add(iteration_key)
             for out in node.outputs:
                 field_names.add(node.name + "." + out.name)
             for cycle_node in node.nodes:
                 for out in cycle_node.outputs:
-                    field_names.add(node.name + "." + out.name)
+                    field_names.add(cycle_node.name + "." + out.name)
     
     # Build the new_fields dictionary
     new_fields = {field_name: PropertyType for field_name in field_names}
@@ -156,14 +186,13 @@ def build_graph(path: str, functions: Dict[str, Any], checkpointer: Any | None =
     # Get workflow input names
     workflow_inputs = {inp.name for inp in workflow.inputs}
     
-    # Collect all nodes and their dependencies
-    all_nodes = {}
+    # Collect nodes dependencies
     node_dependencies = {}
     all_dependencies = set()
+    number_of_cycles = 0
      # Add dummy start node
     graph.add_node(START_NODE_NAME, _Noop)
     graph.add_edge(START, START_NODE_NAME)
-    all_nodes[START_NODE_NAME] = _Noop
     graph.add_node(NOOP_NODE_NAME, _Noop)
 
     if debug:
@@ -171,7 +200,6 @@ def build_graph(path: str, functions: Dict[str, Any], checkpointer: Any | None =
     
     for node in workflow.nodes:
         if isinstance(node, NodeClass):
-            all_nodes[node.name] = node
             deps = extract_dependencies(node.inputs, workflow_inputs)
             node_dependencies[node.name] = deps
             
@@ -182,63 +210,52 @@ def build_graph(path: str, functions: Dict[str, Any], checkpointer: Any | None =
             graph.add_node(node.name, make_task(node, fn_map, graphStateType))
                 
         elif isinstance(node, CycleClass):
-            # Handle cycle as a composite node
-            init_name = f"{node.name}_init"
-            exit_name = f"{node.name}_exit"
+            number_of_cycles += 1
+            # Handle cycle as a composite node with 3 special nodes: start, 
+            # guard and exit (which is the same as the cycle node)
+            cycle_start_name = f"{node.name}_cycle_start"
+            cycle_guard_name = f"{node.name}_cycle_guard"
             
-            # Add cycle init node
+            # Add cycle start node
             inputs_dict = {inp.name: inp.default_value for inp in node.inputs if inp.default_value is not None}
-            graph.add_node(init_name, make_setter(inputs_dict))
+            graph.add_node(cycle_start_name, make_cycle_init_node(node.name, inputs_dict, graphStateType))
             
             # Extract dependencies for the cycle
             deps = extract_dependencies(node.inputs, workflow_inputs)
-            node_dependencies[init_name] = deps
-            all_nodes[init_name] = node
+            node_dependencies[cycle_start_name] = deps
             
             if debug:
                 print(f"Cycle {node.name} (init): dependencies = {deps}")
-
-            # Add internal cycle nodes
-            first_internal = None
-            prev = None
+            
+            cycle_inputs_and_outputs = [node.name + "." + inp.name for inp in node.inputs] + \
+                                       [node.name + "." + out.name for out in node.outputs]
             for cycle_node in node.nodes:
-                graph.add_node(cycle_node.name, make_task(cycle_node.call, fn_map, cycle_node.when))
-                if prev:
-                    graph.add_edge(prev, cycle_node.name)
-                prev = cycle_node.name
-                if first_internal is None:
-                    first_internal = cycle_node.name
-            
+                deps = extract_in_cycle_dependencies(cycle_node.inputs, cycle_inputs_and_outputs, cycle_start_name)
+                node_dependencies[cycle_node.name] = deps
+                graph.add_node(cycle_node.name, make_task(cycle_node, fn_map, graphStateType))
+
             # Add cycle exit node and router
-            graph.add_node(exit_name, lambda s: s)
-            router = make_cycle_router(node.name, node.guard, first_internal, node.max_iterations)
-            graph.add_conditional_edges(prev, router)
-            graph.add_edge(init_name, first_internal)
-            
-            # Track the cycle as a unit (using init node as representative)
-            all_nodes[node.name] = node
-            # Don't add cycle name to node_dependencies - only init_name should be there
-    
+            graph.add_node(cycle_guard_name, make_cycle_guard_node(node, graphStateType))
+            guard_deps = extract_dependencies(node.outputs, set())
+            node_dependencies[cycle_guard_name] = guard_deps
+            graph.add_node(node.name, _Noop)
+            router = make_cycle_router(cycle_name=node.name, 
+                                       guard=node.guard, 
+                                       start_node=cycle_start_name, 
+                                       exit_node=node.name, 
+                                       max_iterations=node.max_iterations)
+            graph.add_conditional_edges(cycle_guard_name, router)
+            all_dependencies.add(cycle_guard_name) # To exclude guard nodes from output nodes
     if debug:
         print("=== Creating dependency edges ===")
-    
     
     # Create dependency-based edges
     for node_name, deps in node_dependencies.items():
         for dep in deps:
             all_dependencies.add(dep)
-            if dep in all_nodes and isinstance(all_nodes[dep], CycleClass):
-                # Connect to cycle's exit node
-                if debug:
-                    print(f"Adding edge: {dep}_exit -> {node_name}")
-                graph.add_(f"{dep}_exit", node_name)
-            elif dep in all_nodes:
-                # Regular node dependency
-                if debug:
-                    print(f"Adding edge: {dep} -> {node_name}")
-                graph.add_edge(dep, node_name)
-            else:
-                raise ValueError(f"Node {dep} not found")
+            if debug:
+                print(f"Adding edge: {dep} -> {node_name}")
+            graph.add_edge(dep, node_name)
 
     output_nodes = set(node_dependencies.keys()) - all_dependencies
     if len(output_nodes) > 1:
