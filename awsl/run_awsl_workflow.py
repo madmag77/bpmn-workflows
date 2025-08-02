@@ -50,11 +50,11 @@ def _eval_condition(expr: str, state: Dict[str, Any]) -> bool:
     expr_py = re.sub(r"([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)", repl, expr)
     return bool(eval(expr_py))
 
-def make_task(node: NodeClass, fn_map: Dict[str, Any], graphStateType: Type):
+def make_task(node: NodeClass, fn_map: Dict[str, Any], graphStateType: Type, run_once_only: bool = False):
     func = fn_map.get(node.call)
     if not callable(func):
         raise ValueError(f"Function '{node.call}' not provided")
-    
+    already_run = [False]
     def task(state: graphStateType, config: RunnableConfig) -> graphStateType:
         all_inputs_available = all(state.get(inp.default_value) is not None 
                                    for inp in node.inputs if not inp.optional and inp.default_value is not None)
@@ -64,6 +64,9 @@ def make_task(node: NodeClass, fn_map: Dict[str, Any], graphStateType: Type):
         if node.when and not _eval_condition(node.when, state):
             return Command(goto=NOOP_NODE_NAME)
         
+        if run_once_only and already_run[0]:
+            return Command(goto=NOOP_NODE_NAME)
+        already_run[0] = True
         metadata = config.get("metadata", {})
         metadata.update({constant.name: constant.value for constant in node.constants})
         update = func(state, config = dict(config, **{"metadata": metadata})) or {}
@@ -88,6 +91,7 @@ def make_cycle_start_node(cycle: CycleClass, graphStateType: Type):
     return cycle_start
 
 def make_cycle_guard_node(cycle: CycleClass, graphStateType: Type):
+    iteration_key = f"{cycle.name}.iteration_counter"
     def cycle_guard(state: graphStateType) -> graphStateType:
         # need to take into account iteration counter because outputs will be there even after first iteration
         all_inputs_available = all(state.get(inp.default_value) is not None 
@@ -95,10 +99,11 @@ def make_cycle_guard_node(cycle: CycleClass, graphStateType: Type):
         if not all_inputs_available:
             return Command(goto=NOOP_NODE_NAME)
         update = {}
+        count = state.get(iteration_key, 0)
+        update[iteration_key] = count + 1
         for out in cycle.outputs:
             val = _eval_value(out.default_value, state)
-            if val is not None:
-                update[cycle.name + "." + out.name] = val
+            update[cycle.name + "." + out.name] = val
         return update
 
     return cycle_guard
@@ -215,7 +220,7 @@ def build_graph(path: str, functions: Dict[str, Any], checkpointer: Any | None =
                 print(f"Node {node.name}: dependencies = {deps}")
             
             # Add node to graph
-            graph.add_node(node.name, make_task(node, fn_map, graphStateType))
+            graph.add_node(node.name, make_task(node, fn_map, graphStateType, run_once_only=True))
                 
         elif isinstance(node, CycleClass):
             number_of_cycles += 1
