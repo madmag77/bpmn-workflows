@@ -17,11 +17,12 @@ workflow SampleRAGWorkflow {
   cycle RetrieveLoop {
     inputs {
         String query = query
-        String next_query_aspect = ""
+        String next_query_aspect
     }
     outputs {
         List<Chunk> final_chunks = Retrieve.chunks
         Bool need_filtering = Retrieve.need_filtering
+        Bool is_enough = RetrieveResultsCheck.is_enough
         String next_query_aspect = RetrieveResultsCheck.next_query_aspect?
     }
     node QueryExtender {
@@ -85,14 +86,13 @@ workflow SampleRAGWorkflow {
     call final_answer_generation
     inputs {
       String query        = query
-      String extended_query = QueryExtender.extended_query
-      Bool need_filtering = Retrieve.need_filtering
+      Bool need_filtering = RetrieveLoop.need_filtering
       List<Chunk> chunks = FilterChunks.filtered_chunks?
-      List<Chunk> chunks = Retrieve.chunks?
+      List<Chunk> chunks = RetrieveLoop.chunks?
       String filtered_chunks_summary = FilterChunks.filtered_chunks_summary?
     }
     when {
-      Retrieve.need_filtering and FilterChunks.filtered_chunks or not Retrieve.need_filtering
+      RetrieveLoop.need_filtering and FilterChunks.filtered_chunks or not RetrieveLoop.need_filtering
     }
     outputs {
       String final_answer

@@ -15,7 +15,7 @@ START_NODE_NAME = "START_NODE"
 NOOP_NODE_NAME = "NOOP_NODE"
 
 def reducer(a: Any, b: Any) -> Any:
-    return b or a
+    return b if b is not None else a
 
 PropertyType = Annotated[Any | None, reducer]
 
@@ -72,19 +72,20 @@ def make_task(node: NodeClass, fn_map: Dict[str, Any], graphStateType: Type):
 
     return task
 
-
-def make_cycle_init_node(cycle_name: str, assignments: Dict[str, str], graphStateType: Type):
-    iteration_key = f"{cycle_name}.iteration_counter"
-    def cycle_init(state: graphStateType) -> graphStateType:
+def make_cycle_start_node(cycle: CycleClass, graphStateType: Type):
+    iteration_key = f"{cycle.name}.iteration_counter"
+    inputs_dict = {inp.name: inp.default_value for inp in cycle.inputs if inp.default_value is not None}
+    def cycle_start(state: graphStateType) -> graphStateType:
         count = state.get(iteration_key, 0) + 1
         update = {iteration_key: count}
-        for k, expr in assignments.items():
+        for k, expr in inputs_dict.items():
             val = _eval_value(expr, state)
-            if val is not None:
-                update[cycle_name + "." + k] = val
+            update[cycle.name + "." + k] = val
+        for out in cycle.outputs:
+            val = _eval_value(out.default_value, state)
+            update[cycle.name + "." + out.name] = val
         return update
-
-    return cycle_init
+    return cycle_start
 
 def make_cycle_guard_node(cycle: CycleClass, graphStateType: Type):
     def cycle_guard(state: graphStateType) -> graphStateType:
@@ -94,25 +95,30 @@ def make_cycle_guard_node(cycle: CycleClass, graphStateType: Type):
         if not all_inputs_available:
             return Command(goto=NOOP_NODE_NAME)
         update = {}
-        # for k, expr in assignments.items():
-        #     val = _eval_value(expr, state)
-        #     if val is not None:
-        #         update[cycle_name + "." + k] = val
+        for out in cycle.outputs:
+            val = _eval_value(out.default_value, state)
+            if val is not None:
+                update[cycle.name + "." + out.name] = val
         return update
 
     return cycle_guard
 
-def make_cycle_router(cycle_name: str, guard: str, start_node: str, exit_node: str, max_iterations: int):
-    iteration_key = f"{cycle_name}.iteration_counter"
+def make_cycle_guard_router(cycle: CycleClass, cycle_start_name: str, graphStateType: Type):
+    iteration_key = f"{cycle.name}.iteration_counter"
 
-    def router(state: Dict[str, Any]):
+    def cycle_guard_router(state: graphStateType) -> graphStateType:
+        all_inputs_available = all(state.get(cycle.name + "." + inp.name) is not None 
+                                   for inp in cycle.outputs)
+        if not all_inputs_available:
+            return Command(goto=NOOP_NODE_NAME)
+        
         count = state.get(iteration_key, 0)
-        if _eval_condition(guard, state) or count >= max_iterations:
-            return exit_node
-        return start_node
+        if _eval_condition(cycle.guard, state) or count >= cycle.max_iterations:
+            return Command(goto=cycle.name)
+        
+        return Command(goto=cycle_start_name)
 
-    return router
-
+    return cycle_guard_router
 
 def extract_dependencies(inputs: List, workflow_inputs: Set[str]) -> Set[str]:
     """Extract node dependencies from input assignments"""
@@ -167,6 +173,8 @@ def build_graph(path: str, functions: Dict[str, Any], checkpointer: Any | None =
             field_names.add(iteration_key)
             for out in node.outputs:
                 field_names.add(node.name + "." + out.name)
+            for inp in node.inputs:
+                field_names.add(node.name + "." + inp.name)
             for cycle_node in node.nodes:
                 for out in cycle_node.outputs:
                     field_names.add(cycle_node.name + "." + out.name)
@@ -215,10 +223,10 @@ def build_graph(path: str, functions: Dict[str, Any], checkpointer: Any | None =
             # guard and exit (which is the same as the cycle node)
             cycle_start_name = f"{node.name}_cycle_start"
             cycle_guard_name = f"{node.name}_cycle_guard"
+            cycle_guard_router_name = f"{node.name}_cycle_guard_router"
             
             # Add cycle start node
-            inputs_dict = {inp.name: inp.default_value for inp in node.inputs if inp.default_value is not None}
-            graph.add_node(cycle_start_name, make_cycle_init_node(node.name, inputs_dict, graphStateType))
+            graph.add_node(cycle_start_name, make_cycle_start_node(node, graphStateType))
             
             # Extract dependencies for the cycle
             deps = extract_dependencies(node.inputs, workflow_inputs)
@@ -235,17 +243,15 @@ def build_graph(path: str, functions: Dict[str, Any], checkpointer: Any | None =
                 graph.add_node(cycle_node.name, make_task(cycle_node, fn_map, graphStateType))
 
             # Add cycle exit node and router
-            graph.add_node(cycle_guard_name, make_cycle_guard_node(node, graphStateType))
+            graph.add_node(cycle_guard_name, make_cycle_guard_node(node, graphStateType), defer=True)
             guard_deps = extract_dependencies(node.outputs, set())
             node_dependencies[cycle_guard_name] = guard_deps
             graph.add_node(node.name, _Noop)
-            router = make_cycle_router(cycle_name=node.name, 
-                                       guard=node.guard, 
-                                       start_node=cycle_start_name, 
-                                       exit_node=node.name, 
-                                       max_iterations=node.max_iterations)
-            graph.add_conditional_edges(cycle_guard_name, router)
-            all_dependencies.add(cycle_guard_name) # To exclude guard nodes from output nodes
+            graph.add_node(cycle_guard_router_name, 
+                           make_cycle_guard_router(node, cycle_start_name, graphStateType), 
+                           defer=True)
+            node_dependencies[cycle_guard_router_name] = set([cycle_guard_name])
+            all_dependencies.add(cycle_guard_router_name) # To exclude guard nodes from output nodes
     if debug:
         print("=== Creating dependency edges ===")
     
@@ -253,8 +259,7 @@ def build_graph(path: str, functions: Dict[str, Any], checkpointer: Any | None =
     for node_name, deps in node_dependencies.items():
         for dep in deps:
             all_dependencies.add(dep)
-            if debug:
-                print(f"Adding edge: {dep} -> {node_name}")
+            print(f"Adding edge: {dep} -> {node_name}")
             graph.add_edge(dep, node_name)
 
     output_nodes = set(node_dependencies.keys()) - all_dependencies
