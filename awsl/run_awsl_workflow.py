@@ -91,7 +91,6 @@ def make_cycle_start_node(cycle: CycleClass, graphStateType: Type):
     return cycle_start
 
 def make_cycle_guard_node(cycle: CycleClass, graphStateType: Type):
-    iteration_key = f"{cycle.name}.iteration_counter"
     def cycle_guard(state: graphStateType) -> graphStateType:
         # need to take into account iteration counter because outputs will be there even after first iteration
         all_inputs_available = all(state.get(inp.default_value) is not None 
@@ -99,8 +98,6 @@ def make_cycle_guard_node(cycle: CycleClass, graphStateType: Type):
         if not all_inputs_available:
             return Command(goto=NOOP_NODE_NAME)
         update = {}
-        count = state.get(iteration_key, 0)
-        update[iteration_key] = count + 1
         for out in cycle.outputs:
             val = _eval_value(out.default_value, state)
             update[cycle.name + "." + out.name] = val
@@ -293,7 +290,7 @@ def run_workflow(workflow_path: str,
                  checkpointer: Any | None = None,
                  debug: bool = False):
     app = build_graph(workflow_path, functions=fn_map, checkpointer=checkpointer, debug=debug)
-    config: Dict[str, Any] = {"configurable": {"thread_id": thread_id}}
+    config: Dict[str, Any] = {"configurable": {"thread_id": thread_id}, "recursion_limit": 100}
     if resume:
         resume_val = json.loads(resume)
         result = app.invoke(Command(resume=resume_val), config)

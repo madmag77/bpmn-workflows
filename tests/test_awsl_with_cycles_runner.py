@@ -67,7 +67,7 @@ def test_awsl_max_iterations_runner_ok():
     }
     result = run_workflow(AWSL_PATH, fn_map=FN_MAP, params={"query": "hello"})
     assert result.get("FinalAnswer.final_answer") == "final answer from chunks"
-    assert result.get("RetrieveLoop.iteration_counter") >= 5 and result.get("RetrieveLoop.iteration_counter") <= 8
+    assert result.get("RetrieveLoop.iteration_counter") == 4
 
 
 

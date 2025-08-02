@@ -60,7 +60,7 @@ workflow SampleRAGWorkflow {
     guard {
       RetrieveResultsCheck.is_enough    # exit loop as soon as validation passes
     }
-    max_iterations: 5
+    max_iterations: 4
   }
 
   node FilterChunks {
