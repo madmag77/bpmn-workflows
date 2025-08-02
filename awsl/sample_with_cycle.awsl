@@ -15,18 +15,21 @@ workflow SampleRAGWorkflow {
   }
 
   cycle RetrieveLoop {
-    max_iterations: 5
     inputs {
         String query = query
+        String next_query_aspect
     }
     outputs {
-        List<Chunk> final_chunks 
+        List<Chunk> final_chunks = Retrieve.chunks
+        Bool need_filtering = Retrieve.need_filtering
+        Bool is_enough = RetrieveResultsCheck.is_enough
+        String next_query_aspect = RetrieveResultsCheck.next_query_aspect?
     }
     node QueryExtender {
         call query_extender
         inputs {
            String query = RetrieveLoop.query
-           String add_query_aspect = RetrieveResultsCheck.next_query_aspect?
+           String add_query_aspect = RetrieveLoop.next_query_aspect?
         }
         outputs {
            String extended_query
@@ -39,7 +42,7 @@ workflow SampleRAGWorkflow {
            String extended_query = QueryExtender.extended_query
         }
         outputs {
-           List<Chunk> chunks
+           (append) List<Chunk> chunks
            Bool need_filtering
         }
     }
@@ -57,17 +60,18 @@ workflow SampleRAGWorkflow {
     guard {
       RetrieveResultsCheck.is_enough    # exit loop as soon as validation passes
     }
+    max_iterations: 4
   }
 
   node FilterChunks {
     call filter_chunks
     inputs {
       String query       = query
-      Bool need_filtering = Retrieve.need_filtering
-      List<Chunk> chunks = Retrieve.chunks
+      Bool need_filtering = RetrieveLoop.need_filtering
+      List<Chunk> chunks = RetrieveLoop.final_chunks
     }
     when {
-      Retrieve.need_filtering
+      RetrieveLoop.need_filtering
     }    
     const {
       llm_model: "gpt-4o"
@@ -82,14 +86,13 @@ workflow SampleRAGWorkflow {
     call final_answer_generation
     inputs {
       String query        = query
-      String extended_query = QueryExtender.extended_query
-      Bool need_filtering = Retrieve.need_filtering
+      Bool need_filtering = RetrieveLoop.need_filtering
       List<Chunk> chunks = FilterChunks.filtered_chunks?
-      List<Chunk> chunks = Retrieve.chunks?
+      List<Chunk> chunks = RetrieveLoop.chunks?
       String filtered_chunks_summary = FilterChunks.filtered_chunks_summary?
     }
     when {
-      Retrieve.need_filtering and FilterChunks.filtered_chunks or not Retrieve.need_filtering
+      RetrieveLoop.need_filtering and FilterChunks.filtered_chunks or not RetrieveLoop.need_filtering
     }
     outputs {
       String final_answer
