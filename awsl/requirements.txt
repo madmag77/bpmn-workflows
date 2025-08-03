@@ -1,1 +1,5 @@
 lark
+pdf2image
+langchain
+langchain_core
+langchain_openai

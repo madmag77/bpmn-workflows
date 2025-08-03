@@ -9,7 +9,13 @@ from typing_extensions import Annotated, TypedDict
 from langgraph.graph import StateGraph, START, END
 from langgraph.types import Command, RunnableConfig
 
-from .grammar.workflow_parser import parse_awsl_to_objects, print_workflow_structure, NodeClass, CycleClass, Workflow
+from awsl.grammar.workflow_parser import (
+    parse_awsl_to_objects, 
+    print_workflow_structure, 
+    NodeClass, 
+    CycleClass, 
+    Workflow
+)
 
 START_NODE_NAME = "START_NODE"
 NOOP_NODE_NAME = "NOOP_NODE"

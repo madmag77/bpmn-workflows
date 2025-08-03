@@ -19,6 +19,26 @@
             "program": "backend_run.py",
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "Run rename papers workflow",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "awsl/run_awsl_workflow.py",
+            "args": [
+                "awsl/paper_rename_workflow/paper_rename_workflow.awsl",
+                "--functions",
+                "awsl.paper_rename_workflow.paper_rename_functions",
+                "--param",
+                "drafts_folder_path=/Users/artemgoncharov/Downloads/drafts",
+                "--param",
+                "processed_folder_path=/Users/artemgoncharov/Downloads/processed",
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
         }
     ]
 }

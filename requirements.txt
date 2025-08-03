@@ -25,3 +25,7 @@ uvicorn
 asyncpg
 fastapi-mcp
 lark
+pdf2image
+langchain
+langchain_core
+langchain_openai
