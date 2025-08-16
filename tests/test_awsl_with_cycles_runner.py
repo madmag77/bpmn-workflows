@@ -28,12 +28,39 @@ def final_answer_generation(query: str,
                             filtered_chunks: list[str], 
                             retrieved_chunks: list[str], 
                             filtered_chunks_summary: str, 
-                            iteration_counter: int,
                             config: dict) -> dict:
     assert query == "hello"
     assert not need_filtering
     assert filtered_chunks is None
     assert retrieved_chunks == ["chunk for hello"]
+    assert filtered_chunks_summary is None
+
+    return {"final_answer": "final answer from chunks"}
+
+def final_answer_generation_2(query: str, 
+                            need_filtering: bool, 
+                            filtered_chunks: list[str], 
+                            retrieved_chunks: list[str], 
+                            filtered_chunks_summary: str, 
+                            config: dict) -> dict:
+    assert query == "hello"
+    assert not need_filtering
+    assert filtered_chunks is None
+    assert retrieved_chunks == ["chunk for hello","chunk for hello"]
+    assert filtered_chunks_summary is None
+
+    return {"final_answer": "final answer from chunks"}
+
+def final_answer_generation_3(query: str, 
+                            need_filtering: bool, 
+                            filtered_chunks: list[str], 
+                            retrieved_chunks: list[str], 
+                            filtered_chunks_summary: str, 
+                            config: dict) -> dict:
+    assert query == "hello"
+    assert not need_filtering
+    assert filtered_chunks is None
+    assert retrieved_chunks == ["chunk for hello","chunk for hello","chunk for hello","chunk for hello"]
     assert filtered_chunks_summary is None
 
     return {"final_answer": "final answer from chunks"}
@@ -56,24 +83,24 @@ def test_awsl_two_cycles_runner_ok():
         "query_extender": query_extender,
         "retrieve_from_web": retrieve_from_web,
         "filter_chunks": filter_chunks,
-        "final_answer_generation": final_answer_generation,
+        "final_answer_generation": final_answer_generation_2,
         "retrieve_results_check": retrieve_results_check_2,
     }
     result = run_workflow(AWSL_PATH, fn_map=FN_MAP, params={"query": "hello"})
     assert result.get("FinalAnswer.final_answer") == "final answer from chunks"
-    assert result.get("RetrieveLoop.iteration_counter") == 2
+    assert result.get("RetrieveLoop.iteration_counter") == 1
 
 def test_awsl_max_iterations_runner_ok():
     FN_MAP = {  
         "query_extender": query_extender,
         "retrieve_from_web": retrieve_from_web,
         "filter_chunks": filter_chunks,
-        "final_answer_generation": final_answer_generation,
+        "final_answer_generation": final_answer_generation_3,
         "retrieve_results_check": retrieve_results_check_false,
     }
     result = run_workflow(AWSL_PATH, fn_map=FN_MAP, params={"query": "hello"})
     assert result.get("FinalAnswer.final_answer") == "final answer from chunks"
-    assert result.get("RetrieveLoop.iteration_counter") == 4
+    assert result.get("RetrieveLoop.iteration_counter") == 3
 
 
 

@@ -15,7 +15,8 @@ from awsl.grammar.workflow_parser import (
     print_workflow_structure, 
     NodeClass, 
     CycleClass, 
-    Workflow
+    Workflow,
+    Reducer
 )
 from langgraph.pregel._read import PregelNode
 from langgraph.pregel._write import ChannelWrite, ChannelWriteTupleEntry
@@ -316,7 +317,7 @@ def build_graph(path: str, functions: Dict[str, Any], checkpointer: Any | None =
     
     return compiled_graph
 
-def make_cycle_guard_pregel_node(cycle: CycleClass, iteration_key: str):
+def make_cycle_guard_pregel_node(cycle: CycleClass, iteration_key: str, all_in_cycle_outputs: set[str]):
     def cycle_guard(task_input: dict) -> dict:
         all_inputs_available = all(task_input.get(inp.default_value) is not None 
                                    for inp in cycle.guard.inputs if inp.default_value is not None and not inp.optional)
@@ -325,7 +326,7 @@ def make_cycle_guard_pregel_node(cycle: CycleClass, iteration_key: str):
         
         update = {}
         count = task_input.get(iteration_key, 0)
-        if _eval_condition(cycle.guard.when, task_input) or count >= cycle.max_iterations:
+        if _eval_condition(cycle.guard.when, task_input) or count >= cycle.max_iterations - 1:
             # Prepare the output of the cycle block
             for out in cycle.outputs:
                 val = _eval_value(out.default_value, task_input)
@@ -338,15 +339,14 @@ def make_cycle_guard_pregel_node(cycle: CycleClass, iteration_key: str):
         return update
 
     triggers = [inp.default_value for inp in cycle.guard.inputs if inp.target_node_name is not None]
-    channels = triggers
-    channels.append(iteration_key)
-    channels.extend([out.default_value for out in cycle.outputs if out.target_node_name is not None])
     return create_pregel_node_from_params(fn=cycle_guard, 
-                                          channels=channels, 
+                                          channels=triggers+[iteration_key]+list(all_in_cycle_outputs), 
                                           triggers=triggers)
 
-def create_cycle_start_pregel_node(cycle: CycleClass, iteration_key: str, in_cycle_node_names: Set[str]):
-    to_clear_each_start = [inp.default_value for inp in cycle.inputs if inp.target_node_name in in_cycle_node_names]
+def create_cycle_start_pregel_node(cycle: CycleClass, 
+                                   iteration_key: str, 
+                                   cycle_nodes_outputs_to_clean: list[str], 
+                                   all_in_cycle_outputs: set[str]):
     inputs_dict = {inp.name: inp.default_value for inp in cycle.inputs if inp.default_value is not None}
     def cycle_start(task_input: dict) -> dict:
         update = {}
@@ -354,17 +354,16 @@ def create_cycle_start_pregel_node(cycle: CycleClass, iteration_key: str, in_cyc
             val = _eval_value(expr, task_input)
             update[cycle.name + "." + k] = val
 
-        for clear_node in to_clear_each_start:
+        for clear_node in cycle_nodes_outputs_to_clean:
             update[clear_node] = None
 
         return update
     
     triggers = [inp.default_value for inp in cycle.inputs 
-                if inp.default_value is not None and inp.target_node_name not in in_cycle_node_names]
+                if inp.default_value is not None and inp.default_value not in all_in_cycle_outputs]
     triggers.append(iteration_key)
     return create_pregel_node_from_params(fn=cycle_start, 
-                                          channels=[inp.default_value for inp in cycle.inputs 
-                                                    if inp.default_value is not None], 
+                                          channels=triggers + list(all_in_cycle_outputs), 
                                           triggers=triggers)
 
 def make_pregel_task(node: NodeClass, fn_map: Dict[str, Any]):
@@ -455,22 +454,31 @@ def build_pregel_graph(path: str, functions: Dict[str, Any], checkpointer: Any |
             iteration_key = f"{node.name}.iteration_counter"
             cycle_iteration_keys.append(iteration_key)
             field_names[iteration_key] = BinaryOperatorAggregate(int, operator.add)
-            in_cycle_node_names = set()
+            in_cycle_node_output_names = set()
+            cycle_nodes_outputs_to_clean = set()
             for out in node.outputs:
                 field_names[node.name + "." + out.name] = LastValue(Any)
             for inp in node.inputs:
                 field_names[node.name + "." + inp.name] = LastValue(Any)
             for in_cycle_node in node.nodes:
                 for out in in_cycle_node.outputs:
-                    in_cycle_node_names.add(in_cycle_node.name)
-                    field_names[in_cycle_node.name + "." + out.name] = LastValue(Any)
+                    in_cycle_node_output_names.add(in_cycle_node.name + "." + out.name)
+                    if out.reducer == Reducer.APPEND:
+                        field_names[in_cycle_node.name + "." + out.name] = BinaryOperatorAggregate(list[Any], operator.add) # noqa: E501
+                        # we don't want to clear aggregated values
+                    else:
+                        field_names[in_cycle_node.name + "." + out.name] = LastValue(Any)
+                        cycle_nodes_outputs_to_clean.add(in_cycle_node.name + "." + out.name)
 
             # Handle cycle as a composite node with 2 special nodes: start and guard
             cycle_start_name = f"{node.name}_cycle_start"
             cycle_guard_name = f"{node.name}_cycle_guard"
             
             # Add cycle start node
-            nodes[cycle_start_name] = create_cycle_start_pregel_node(node, iteration_key, in_cycle_node_names)
+            nodes[cycle_start_name] = create_cycle_start_pregel_node(node, 
+                                                                     iteration_key, 
+                                                                     cycle_nodes_outputs_to_clean, 
+                                                                     in_cycle_node_output_names)
             
             # Extract dependencies for the cycle
             deps = extract_dependencies(node.inputs, workflow_inputs)
@@ -489,7 +497,7 @@ def build_pregel_graph(path: str, functions: Dict[str, Any], checkpointer: Any |
             #node.nodes_outputs = nodes_outputs
 
             # Add cycle guard node
-            nodes[cycle_guard_name] = make_cycle_guard_pregel_node(node, iteration_key)
+            nodes[cycle_guard_name] = make_cycle_guard_pregel_node(node, iteration_key, in_cycle_node_output_names)
             node_dependencies[cycle_guard_name] = set([cycle_start_name])
     
     # Create dependency-based edges
