@@ -17,7 +17,7 @@ class Book(BaseModel):
 
 def get_files(state: dict, config: dict) -> dict:
     folder_path = state.get("drafts_folder_path")
-    return {"file_paths": [f for f in os.listdir(folder_path) if f.endswith(".pdf")]}
+    return {"file_paths": [os.path.join(folder_path, f) for f in os.listdir(folder_path) if f.endswith(".pdf")]}
 
 def read_pdf_file(state: dict, config: dict) -> dict:
     pages_to_read = config.get("metadata", {}).get("pages_to_read")
@@ -47,7 +47,7 @@ def extract_metadata(state: dict, config: dict) -> dict:
         return img_str
     
     pages = state.get("ReadPdfFile.pages")
-    llm_model = config.get("metadata", {}).get("llm_model")
+    llm_model = config.get("metadata", {}).get("model")
     base_url = config.get("metadata", {}).get("base_url")
     temperature = config.get("metadata", {}).get("temperature")
 
@@ -103,7 +103,7 @@ def rename_file(state: dict, config: dict) -> dict:
 
 def check_all_files_processed(state: dict, config: dict) -> dict:
     remaining_file_paths_to_process = state.get("RenameLoop.remaining_file_paths_to_process")
-    processed_files = state.get("RenameLoop.processed_files")
+    processed_files = state.get("RenameLoop.processed_files") or []
     processed_file = state.get("RenameFile.new_file_path")
     remaining_file_paths_to_process.pop(0)
     processed_files.append(processed_file)

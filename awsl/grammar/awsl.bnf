@@ -37,7 +37,8 @@ retry_block: "retry" "{" "attempts:" INT "," "backoff:" NAME "," "policy:" NAME 
 cycle_block: "cycle" NAME "{" cycle_body "}"
 cycle_body: inputs_block outputs_block node_block* guard_clause "max_iterations:" INT
 
-guard_clause: "guard" "{" expr "}"
+guard_clause: "guard" "{" guard_body "}"
+guard_body: inputs_block when_clause
 
 REDUCER: "last" | "append"
 TYPE: /[A-Za-z][A-Za-z0-9_<>,]*/

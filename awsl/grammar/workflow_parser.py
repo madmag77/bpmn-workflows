@@ -24,8 +24,14 @@ class Input:
     """Represents an input parameter declaration"""
     type: str
     name: str
-    default_value: Optional[Any] = None
+    default_value: Optional[str] = None
     optional: bool = False
+
+    @property
+    def target_node_name(self):
+        if self.default_value is None or '.' not in self.default_value:
+            return None
+        return self.default_value.split(".", 1)[0]
 
 @dataclass
 class Output:
@@ -35,7 +41,13 @@ class Output:
     reducer: Reducer = Reducer.LAST
     default_value: Optional[Any] = None
     optional: bool = False
-
+    
+    @property
+    def target_node_name(self):
+        if self.default_value is None or '.' not in self.default_value:
+            return None
+        return self.default_value.split(".", 1)[0]
+    
 @dataclass
 class Metadata:
     """Represents workflow metadata"""
@@ -69,6 +81,11 @@ class NodeClass:
     retry: Optional[RetryConfig] = None
     constants: List[Constant] = field(default_factory=list)
 
+@dataclass
+class GuardClass:
+    """Represents a workflow guard"""
+    when: str = ""
+    inputs: List[Input] = field(default_factory=list)
 
 @dataclass
 class CycleClass:
@@ -77,9 +94,9 @@ class CycleClass:
     inputs: List[Input] = field(default_factory=list)
     outputs: List[Output] = field(default_factory=list)
     nodes: List[NodeClass] = field(default_factory=list)
-    guard: str = ""
+    guard: GuardClass = field(default_factory=GuardClass)
     max_iterations: int = 10
-
+    nodes_outputs: List[str] = field(default_factory=list)
 
 @dataclass
 class Workflow:
@@ -240,6 +257,9 @@ class ASTBuilder(Transformer):
 
     def guard_clause(self, items):
         return {"guard": items[0]}
+    
+    def guard_body(self, items):
+        return GuardClass(inputs=items[0], when=items[1]["when"])
 
     def expr(self, items):
         text = str(items[0]).strip()

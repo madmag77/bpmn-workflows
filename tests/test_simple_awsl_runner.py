@@ -3,26 +3,32 @@ from awsl.run_awsl_workflow import run_workflow
 AWSL_PATH = "awsl/sample.awsl"
 
 
-def query_extender(state: dict, config: dict) -> dict:
+def query_extender(query: str, config: dict) -> dict:
     return {"extended_query": "extended query"}
 
 
-def retrieve_from_web(state: dict, config: dict) -> dict:
+def retrieve_from_web(extended_query: str, config: dict) -> dict:
     return {"chunks": ["chunk for hello"], "need_filtering": False}
 
 
-def filter_chunks(state: dict, config: dict) -> dict:
+def filter_chunks(query: str, need_filtering: bool, chunks: list[str], config: dict) -> dict:
     assert config.get("metadata", {}).get("llm_model") == "gpt-4o"
     return {"filtered_chunks": ["chunk for hello"]}
 
+def final_answer_generation(query: str, 
+                            extended_query: str, 
+                            need_filtering: bool, 
+                            chunks: list[str], 
+                            filtered_chunks_summary: str, 
+                            iteration_counter: int,
+                            config: dict) -> dict:
+    assert query == "hello"
+    assert extended_query == "extended query"
+    assert not need_filtering
+    assert chunks == ["chunk for hello"]
+    assert filtered_chunks_summary is None
 
-def final_answer_generation(state: dict, config: dict) -> dict:
-    assert state.get("QueryExtender.extended_query") == "extended query"
-    assert state.get("Retrieve.chunks") == ["chunk for hello"]
-    assert state.get("FilterChunks.filtered_chunks") is None
-    assert state.get("Retrieve.chunks") == ["chunk for hello"]
     return {"final_answer": "final answer from chunks"}
-
 
 FN_MAP = {  
     "query_extender": query_extender,
