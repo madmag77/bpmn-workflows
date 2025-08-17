@@ -10,7 +10,6 @@ from langgraph.channels import LastValue, BinaryOperatorAggregate
 from langgraph.pregel import Pregel
 from awsl.grammar.workflow_parser import (
     parse_awsl_to_objects, 
-    print_workflow_structure, 
     NodeClass, 
     CycleClass, 
     Workflow,
@@ -314,16 +313,9 @@ if __name__ == "__main__":
                         help="Workflow input parameter key=value")
     parser.add_argument("--thread-id", type=str, default="cli")
     parser.add_argument("--resume", type=str, default=None)
-    parser.add_argument("--print-structure", action="store_true", 
-                        help="Print the workflow object structure and exit")
     parser.add_argument("--debug", action="store_true", 
                         help="Print debug information including dependency graph")
     args = parser.parse_args()
-
-    if args.print_structure:
-        workflow = parse_awsl_to_objects(args.workflow_path)
-        print_workflow_structure(workflow)
-        exit(0)
 
     mod = __import__(args.functions, fromlist=["*"])
     fn_map = {k: getattr(mod, k) for k in dir(mod) if not k.startswith("_")}
