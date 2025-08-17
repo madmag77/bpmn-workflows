@@ -248,7 +248,7 @@ def build_pregel_graph(path: str, functions: Dict[str, Any], checkpointer: Any |
                                                                      in_cycle_node_output_names)
             
             # Extract dependencies for the cycle
-            deps = extract_dependencies(node.inputs, workflow_inputs)
+            deps = extract_dependencies(node.inputs + node.outputs, workflow_inputs)
             deps.add(cycle_guard_name)
             node_dependencies[cycle_start_name] = deps
             

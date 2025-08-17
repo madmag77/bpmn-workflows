@@ -13,7 +13,7 @@ workflow PaperRenameWorkflow {
   }
 
   outputs {
-    List<String> processed_files
+    List<String> processed_files = ReturnProcessedFiles.processed_files
   }
 
   node GetFiles {
@@ -28,19 +28,19 @@ workflow PaperRenameWorkflow {
 
   cycle RenameLoop {
     inputs {
-        List<String> remaining_file_paths_to_process = GetFiles.file_paths
+        List<String> initial_file_paths_to_process = GetFiles.file_paths
+        List<String> remaining_file_paths_to_process = ReadPdfFile.remaining_file_paths
         String processed_folder_path = processed_folder_path
     }
     outputs {
         List<String> processed_files = CheckAllFilesProcessed.processed_files
-        Bool is_done = CheckAllFilesProcessed.is_done
-        List<String> remaining_file_paths_to_process = CheckAllFilesProcessed.remaining_file_paths_to_process
     }
 
     node ReadPdfFile {
         call read_pdf_file
         inputs {
-           List<String> file_paths = RenameLoop.remaining_file_paths_to_process
+           List<String> file_paths = RenameLoop.remaining_file_paths_to_process?
+           List<String> initial_file_paths_to_process = RenameLoop.initial_file_paths_to_process
         }
         const {
             pages_to_read: 2
@@ -48,6 +48,7 @@ workflow PaperRenameWorkflow {
         outputs {
            List<T<Image>> pages
            String file_path
+           List<String> remaining_file_paths
         }
     }
 
@@ -85,17 +86,21 @@ workflow PaperRenameWorkflow {
     node CheckAllFilesProcessed {
         call check_all_files_processed
         inputs {
-           List<String> remaining_file_paths_to_process = RenameLoop.remaining_file_paths_to_process
+           List<String> remaining_file_paths_to_process = ReadPdfFile.remaining_file_paths
            String processed_file = RenameFile.new_file_path
         }
         outputs {
            Bool is_done
-           List<String> remaining_file_paths_to_process
-           List<String> processed_files
+           (append) List<String> processed_files
         }
     }
     guard {
-      CheckAllFilesProcessed.is_done
+      inputs {
+        Bool is_done = CheckAllFilesProcessed.is_done
+      }
+      when {
+        CheckAllFilesProcessed.is_done
+      }
     }
     max_iterations: 10
   }

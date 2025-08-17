@@ -19,8 +19,7 @@ def final_answer_generation(query: str,
                             extended_query: str, 
                             need_filtering: bool, 
                             chunks: list[str], 
-                            filtered_chunks_summary: str, 
-                            iteration_counter: int,
+                            filtered_chunks_summary: str,
                             config: dict) -> dict:
     assert query == "hello"
     assert extended_query == "extended query"
