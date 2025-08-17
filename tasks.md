@@ -2,7 +2,7 @@
 
 ## Tasks
 
-1. In AWSL workflows when loading it check that for each node all inputs from `when` are in `inputs`.
+1. In AWSL workflows when loading it checks that for each node all inputs from `when` are in `inputs`.
 2. `call` instruction now is somewhat special so it should be first in the node definition, I think it's wrong, it can be anywhere, it's just the same element as inputs and outputs.
 3. Workflow functions (that we mention in `call`) shouldn't have access to the whole state of the workflow, we need to pass to them only inputs defined in their inputs block, and also we need to remove node name from inputs, if in the inputs there is `String input1 = previousNode.output1` we need to pass internal name `input1` so node function can work independently from other parts of the workflow.
 4. We need to return from workflow only what was mentioned in it's output.

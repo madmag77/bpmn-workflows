@@ -24,8 +24,14 @@ class Input:
     """Represents an input parameter declaration"""
     type: str
     name: str
-    default_value: Optional[Any] = None
+    default_value: Optional[str] = None
     optional: bool = False
+
+    @property
+    def target_node_name(self):
+        if self.default_value is None or '.' not in self.default_value:
+            return None
+        return self.default_value.split(".", 1)[0]
 
 @dataclass
 class Output:
@@ -35,7 +41,13 @@ class Output:
     reducer: Reducer = Reducer.LAST
     default_value: Optional[Any] = None
     optional: bool = False
-
+    
+    @property
+    def target_node_name(self):
+        if self.default_value is None or '.' not in self.default_value:
+            return None
+        return self.default_value.split(".", 1)[0]
+    
 @dataclass
 class Metadata:
     """Represents workflow metadata"""
@@ -69,6 +81,11 @@ class NodeClass:
     retry: Optional[RetryConfig] = None
     constants: List[Constant] = field(default_factory=list)
 
+@dataclass
+class GuardClass:
+    """Represents a workflow guard"""
+    when: str = ""
+    inputs: List[Input] = field(default_factory=list)
 
 @dataclass
 class CycleClass:
@@ -77,9 +94,9 @@ class CycleClass:
     inputs: List[Input] = field(default_factory=list)
     outputs: List[Output] = field(default_factory=list)
     nodes: List[NodeClass] = field(default_factory=list)
-    guard: str = ""
+    guard: GuardClass = field(default_factory=GuardClass)
     max_iterations: int = 10
-
+    nodes_outputs: List[str] = field(default_factory=list)
 
 @dataclass
 class Workflow:
@@ -240,6 +257,9 @@ class ASTBuilder(Transformer):
 
     def guard_clause(self, items):
         return {"guard": items[0]}
+    
+    def guard_body(self, items):
+        return GuardClass(inputs=items[0], when=items[1]["when"])
 
     def expr(self, items):
         text = str(items[0]).strip()
@@ -280,81 +300,6 @@ class ASTBuilder(Transformer):
     
     def NAME_WITH_DOT(self, token):
         return str(token)
-
-def print_workflow_structure(workflow: Workflow, indent: int = 0) -> None:
-    """Pretty print the workflow object hierarchy"""
-    prefix = "  " * indent
-    print(f"{prefix}Workflow: {workflow.name}")
-    
-    if workflow.metadata:
-        print(f"{prefix}  Metadata:")
-        for key, value in workflow.metadata.entries.items():
-            print(f"{prefix}    {key}: {value}")
-    
-    if workflow.inputs:
-        print(f"{prefix}  Inputs:")
-        for inp in workflow.inputs:
-            default = f" = {inp.default_value}" if inp.default_value is not None else ""
-            print(f"{prefix}    {inp.type} {inp.name}{default}")
-    
-    if workflow.outputs:
-        print(f"{prefix}  Outputs:")
-        for out in workflow.outputs:
-            default = f" = {out.default_value}" if out.default_value is not None else ""
-            print(f"{prefix}    {out.type} {out.name}{default}")
-    
-    print(f"{prefix}  Nodes:")
-    for node in workflow.nodes:
-        if isinstance(node, NodeClass):
-            print(f"{prefix}    NodeClass: {node.name}")
-            print(f"{prefix}      call: {node.call}")
-            if node.when:
-                print(f"{prefix}      when: {node.when}")
-            if node.inputs:
-                print(f"{prefix}      inputs:")
-                for inp in node.inputs:
-                    default = f" = {inp.default_value}" if inp.default_value is not None else ""
-                    print(f"{prefix}        {inp.type} {inp.name}{default}")
-            if node.outputs:
-                print(f"{prefix}      outputs:")
-                for out in node.outputs:
-                    default = f" = {out.default_value}" if out.default_value is not None else ""
-                    print(f"{prefix}        {out.type} {out.name}{default}")
-            if node.hitl:
-                print(f"{prefix}      hitl: correlation={node.hitl.correlation}, timeout={node.hitl.timeout}")
-        elif isinstance(node, CycleClass):
-            print(f"{prefix}    CycleClass: {node.name}")
-            print(f"{prefix}      guard: {node.guard}")
-            print(f"{prefix}      max_iterations: {node.max_iterations}")
-            if node.inputs:
-                print(f"{prefix}      inputs:")
-                for inp in node.inputs:
-                    default = f" = {inp.default_value}" if inp.default_value is not None else ""
-                    print(f"{prefix}        {inp.type} {inp.name}{default}")
-            if node.outputs:
-                print(f"{prefix}      outputs:")
-                for out in node.outputs:
-                    default = f" = {out.default_value}" if out.default_value is not None else ""
-                    print(f"{prefix}        {out.type} {out.name}{default}")
-            print(f"{prefix}      nodes:")
-            for node in node.nodes:
-                print(f"{prefix}        NodeClass: {node.name}")
-                print(f"{prefix}          call: {node.call}")
-                if node.when:
-                    print(f"{prefix}          when: {node.when}")
-                if node.inputs:
-                    print(f"{prefix}          inputs:")
-                    for inp in node.inputs:
-                        default = f" = {inp.default_value}" if inp.default_value is not None else ""
-                        print(f"{prefix}            {inp.type} {inp.name}{default}")
-                if node.outputs:
-                    print(f"{prefix}          outputs:")
-                    for out in node.outputs:
-                        default = f" = {out.default_value}" if out.default_value is not None else ""
-                        print(f"{prefix}            {out.type} {out.name}{default}")
-                if node.hitl:
-                    print(f"{prefix}          hitl: correlation={node.hitl.correlation}, timeout={node.hitl.timeout}")
-
 
 def parse_awsl_to_objects(path: str) -> Workflow:
     """Parse AWSL file and return structured object hierarchy"""
