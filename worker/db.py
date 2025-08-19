@@ -6,11 +6,8 @@ from typing import Any, Dict
 import asyncpg
 from langgraph.checkpoint.postgres import PostgresSaver
 
-from bpmn_workflows.run_bpmn_workflow import run_workflow
+from awsl.run_awsl_workflow import run_workflow
 from backend.workflow_loader import get_template
-import steps.deepresearch_functions as drf
-
-FN_MAP = {name: getattr(drf, name) for name in dir(drf) if not name.startswith("_")}
 
 async def claim_job(pool: asyncpg.pool.Pool, worker_id: str) -> Dict[str, Any] | None:
     async with pool.acquire() as conn, conn.transaction():
@@ -67,20 +64,27 @@ async def set_state(
             res_str,
         )
 
-async def run_langgraph(job: Dict[str, Any]) -> tuple[str, Dict[str, Any]]:
+async def run_awsl(job: Dict[str, Any]) -> tuple[str, Dict[str, Any]]:
     tpl = get_template(job["graph_name"])
     if not tpl:
         raise ValueError("Template not found")
-    params = {"query": job.get("query", "")}
+    params = json.loads(job.get("inputs", "{}"))
     resume = job.get("resume_payload")
     if resume:
         params = None
+    # Convert absolute path to relative module path
+    workflow_path = tpl["path"]
+    # Get path relative to current working directory
+    rel_path = os.path.relpath(workflow_path, start=os.getcwd())
+    functions_module = rel_path.replace(".awsl", "").replace(os.sep, ".")
+    mod = __import__(functions_module, fromlist=["*"])
+    fn_map = {k: getattr(mod, k) for k in dir(mod) if not k.startswith("_")}
     with PostgresSaver.from_conn_string(os.getenv("DATABASE_URL")) as saver:
         saver.setup()
         result = await asyncio.to_thread(
             run_workflow,
             tpl["path"],
-            fn_map=FN_MAP,
+            fn_map=fn_map,
             params=params,
             thread_id=job["id"],
             resume=resume,

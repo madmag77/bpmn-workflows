@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import os
 import uuid
 from contextlib import asynccontextmanager
 from enum import Enum
@@ -12,17 +11,10 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-import steps.deepresearch_functions as drf
-
 from backend.database import init_db, get_session
 from backend.models import WorkflowRun
 from backend.workflow_loader import list_templates, get_template
 from fastapi_mcp import FastApiMCP
-
-POSTGRES_URL = os.getenv("DATABASE_URL")
-
-FN_MAP = {name: getattr(drf, name) for name in dir(drf) if not name.startswith("_")}
-
 
 class WorkflowStatus(str, Enum):
     QUEUED = "queued"
@@ -36,11 +28,11 @@ class WorkflowStatus(str, Enum):
 # Pydantic models for request/response validation
 class StartWorkflowRequest(BaseModel):
     template_name: str
-    query: str = ""
+    inputs: dict = {}
 
 
 class ContinueWorkflowRequest(BaseModel):
-    query: str = ""
+    inputs: dict = {}
 
 
 class WorkflowResponse(BaseModel):
@@ -138,7 +130,7 @@ def start_workflow(
         graph_name=tpl["id"],
         thread_id=workflow_run_id,
         state=WorkflowStatus.QUEUED,
-        query=request.query,
+        inputs=request.inputs,
         result={},
     )
     db.add(run)
@@ -160,7 +152,7 @@ def continue_workflow(
         raise HTTPException(400, "Workflow was canceled")
     if run.state != WorkflowStatus.NEEDS_INPUT:
         raise HTTPException(400, "Workflow not waiting for input")
-    run.resume_payload = json.dumps({"answer": request.query})
+    run.resume_payload = json.dumps({"answer": request.inputs})
     run.state = WorkflowStatus.QUEUED
     db.commit()
     db.refresh(run)

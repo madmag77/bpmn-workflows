@@ -1,6 +1,9 @@
 import asyncio
 import uvicorn
 from worker.worker_pool import main as worker_main
+from dotenv import load_dotenv
+
+load_dotenv()
 
 async def run_backend():
     """Run the FastAPI backend server"""
