@@ -476,10 +476,11 @@ body {
   overflow-y: auto;
 }
 
-/* Raw Data */
-.raw-data {
-  background-color: #1e293b;
-  color: #e2e8f0;
+/* Workflow Data (Inputs and Results) */
+.workflow-data {
+  background-color: #f8fafc;
+  color: #1e293b;
+  border: 1px solid var(--border-color);
   padding: 1.5rem;
   border-radius: 8px;
   font-size: 0.75rem;
@@ -487,6 +488,22 @@ body {
   overflow-x: auto;
   max-height: 400px;
   overflow-y: auto;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+}
+
+/* Error Data */
+.error-data {
+  background-color: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+  padding: 1.5rem;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  overflow-x: auto;
+  max-height: 400px;
+  overflow-y: auto;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
 }
 
 /* Questions List */
@@ -539,10 +556,10 @@ body {
   .answer-input {
     flex-direction: column;
     align-items: stretch;
-}
+  }
 
-.continue-btn {
-  width: 100%;
+  .continue-btn {
+    width: 100%;
   }
 }
 

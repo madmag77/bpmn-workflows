@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react'
-import ReactMarkdown from 'react-markdown'
 import './App.css'
-import { continueWorkflow as apiContinue, startWorkflow as apiStart, getWorkflow, getWorkflows, getWorkflowTemplates } from './api.js'
-import { cancelWorkflow as apiCancel } from './api.js'
+import { cancelWorkflow as apiCancel, continueWorkflow as apiContinue, startWorkflow as apiStart, getWorkflow, getWorkflows, getWorkflowTemplates } from './api.js'
 import { POLL_INTERVAL_MS } from './constants.js'
 import { startPolling } from './timer.js'
 
@@ -11,7 +9,11 @@ export default function App() {
   const [selectedId, setSelectedId] = useState(null)
   const [selected, setSelected] = useState(null)
   const [showInterrupt, setShowInterrupt] = useState(false)
-  const [expandedSections, setExpandedSections] = useState({})
+  const [expandedSections, setExpandedSections] = useState({
+    inputs: true,
+    results: true,
+    error: true
+  })
   const [templates, setTemplates] = useState([])
   const [showStartModal, setShowStartModal] = useState(false)
   const [newTemplate, setNewTemplate] = useState('')
@@ -112,33 +114,7 @@ export default function App() {
   const [answer, setAnswer] = useState('')
   const interrupt = selected?.result?.__interrupt__?.[0]
 
-  // Extract key information from the result
-  const extractWorkflowInfo = (result) => {
-    if (!result) return null
-
-    const query = result.query || ''
-    const finalAnswer = result.final_answer || ''
-    const extendedQuery = result.extended_query || ''
-    const questions = result.questions || []
-    const clarifications = result.clarifications || {}
-    const chunks = result.chunks || []
-    const researchIteration = result.ResearchLoop_iteration || 0
-    const iteration = result.iteration || 0
-
-    return {
-      query,
-      finalAnswer,
-      extendedQuery,
-      questions,
-      clarifications,
-      chunks,
-      researchIteration,
-      iteration,
-      rawResult: result
-    }
-  }
-
-  const workflowInfo = selected ? extractWorkflowInfo(selected.result) : null
+  // No need to extract specific workflow fields - just show inputs and results as per WorkflowDetail model
 
   return (
     <div className="container">
@@ -200,134 +176,67 @@ export default function App() {
                   </button>
                 </div>
               </div>
-            ) : workflowInfo ? (
+            ) : selected ? (
               <div className="workflow-result">
-                {/* Initial Query */}
-                <div className="result-section">
-                  <h3>🎯 Initial Query</h3>
-                  <div className="query-box">
-                    <ReactMarkdown>{workflowInfo.query}</ReactMarkdown>
-                  </div>
-                </div>
-
-                {/* Final Answer */}
-                {workflowInfo.finalAnswer && (
-                  <div className="result-section">
-                    <h3>✅ Final Answer</h3>
-                    <div className="final-answer">
-                      <ReactMarkdown>{workflowInfo.finalAnswer}</ReactMarkdown>
-                    </div>
-                  </div>
-                )}
-
-                {/* Extended Query */}
-                {workflowInfo.extendedQuery && (
+                {/* Inputs */}
+                {selected.inputs && typeof selected.inputs === 'object' && selected.inputs !== null && Object.keys(selected.inputs).length > 0 && (
                   <div className="result-section">
                     <div
                       className="section-header"
-                      onClick={() => toggleSection('extended')}
+                      onClick={() => toggleSection('inputs')}
                     >
-                      <h3>🔍 Extended Query</h3>
+                      <h3>📥 Inputs</h3>
                       <span className="toggle-icon">
-                        {expandedSections.extended ? '▼' : '▶'}
+                        {expandedSections.inputs ? '▼' : '▶'}
                       </span>
                     </div>
-                    {expandedSections.extended && (
+                    {expandedSections.inputs && (
                       <div className="section-content">
-                        <ReactMarkdown>{workflowInfo.extendedQuery}</ReactMarkdown>
+                        <pre className="workflow-data">{JSON.stringify(selected.inputs, null, 2)}</pre>
                       </div>
                     )}
                   </div>
                 )}
 
-                {/* Questions */}
-                {workflowInfo.questions.length > 0 && (
+                {/* Results */}
+                {selected.result && typeof selected.result === 'object' && selected.result !== null && Object.keys(selected.result).length > 0 && (
                   <div className="result-section">
                     <div
                       className="section-header"
-                      onClick={() => toggleSection('questions')}
+                      onClick={() => toggleSection('results')}
                     >
-                      <h3>❓ Research Questions</h3>
+                      <h3>📤 Results</h3>
                       <span className="toggle-icon">
-                        {expandedSections.questions ? '▼' : '▶'}
+                        {expandedSections.results ? '▼' : '▶'}
                       </span>
                     </div>
-                    {expandedSections.questions && (
+                    {expandedSections.results && (
                       <div className="section-content">
-                        <ul className="questions-list">
-                          {workflowInfo.questions.map((question, idx) => (
-                            <li key={idx}>{question}</li>
-                          ))}
-                        </ul>
+                        <pre className="workflow-data">{JSON.stringify(selected.result, null, 2)}</pre>
                       </div>
                     )}
                   </div>
                 )}
 
-                {/* Clarifications */}
-                {Object.keys(workflowInfo.clarifications).length > 0 && (
+                {/* Error */}
+                {selected.error && typeof selected.error === 'string' && selected.error.trim() !== '' && (
                   <div className="result-section">
                     <div
                       className="section-header"
-                      onClick={() => toggleSection('clarifications')}
+                      onClick={() => toggleSection('error')}
                     >
-                      <h3>💡 Clarifications</h3>
+                      <h3>❌ Error</h3>
                       <span className="toggle-icon">
-                        {expandedSections.clarifications ? '▼' : '▶'}
+                        {expandedSections.error ? '▼' : '▶'}
                       </span>
                     </div>
-                    {expandedSections.clarifications && (
+                    {expandedSections.error && (
                       <div className="section-content">
-                        <ReactMarkdown>{workflowInfo.clarifications.answer || 'No clarifications available'}</ReactMarkdown>
+                        <pre className="error-data">{selected.error}</pre>
                       </div>
                     )}
                   </div>
                 )}
-
-                {/* Research Data */}
-                {workflowInfo.chunks.length > 0 && (
-                  <div className="result-section">
-                    <div
-                      className="section-header"
-                      onClick={() => toggleSection('research')}
-                    >
-                      <h3>📚 Research Data ({workflowInfo.chunks.length} sources)</h3>
-                      <span className="toggle-icon">
-                        {expandedSections.research ? '▼' : '▶'}
-                      </span>
-                    </div>
-                    {expandedSections.research && (
-                      <div className="section-content">
-                        <div className="research-chunks">
-                          {workflowInfo.chunks.map((chunk, idx) => (
-                            <div key={idx} className="chunk">
-                              <div className="chunk-header">Source {idx + 1}</div>
-                              <div className="chunk-content">{chunk}</div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Raw Data */}
-                <div className="result-section">
-                  <div
-                    className="section-header"
-                    onClick={() => toggleSection('raw')}
-                  >
-                    <h3>🔧 Raw Data</h3>
-                    <span className="toggle-icon">
-                      {expandedSections.raw ? '▼' : '▶'}
-                    </span>
-                  </div>
-                  {expandedSections.raw && (
-                    <div className="section-content">
-                      <pre className="raw-data">{JSON.stringify(workflowInfo.rawResult, null, 2)}</pre>
-                    </div>
-                  )}
-                </div>
               </div>
             ) : (
               <div className="no-result">

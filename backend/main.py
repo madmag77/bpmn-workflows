@@ -4,6 +4,7 @@ import json
 import uuid
 from contextlib import asynccontextmanager
 from enum import Enum
+from typing import Optional
 
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -43,9 +44,11 @@ class WorkflowResponse(BaseModel):
 
 class WorkflowDetail(BaseModel):
     id: str
+    inputs: dict
     template: str
     status: WorkflowStatus
     result: dict
+    error: Optional[str] = None
 
 
 class WorkflowHistory(BaseModel):
@@ -110,9 +113,11 @@ def workflow_detail(workflow_run_id: str, db: Session = Depends(get_session)) ->
         raise HTTPException(404, "Workflow not found")
     return WorkflowDetail(
         id=run.id,
+        inputs=run.inputs,
         template=run.graph_name,
         status=run.state,
         result=run.result,
+        error=run.error,
     )
 
 
