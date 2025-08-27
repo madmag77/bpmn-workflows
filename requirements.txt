@@ -5,8 +5,10 @@ langgraph>=0.4
 langgraph-checkpoint-sqlite
 langgraph-checkpoint-postgres
 SQLAlchemy>=2.0
+psycopg2-binary
 xmlschema
 pytest
+dotenv
 
 setuptools
 wheel

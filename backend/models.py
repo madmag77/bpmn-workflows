@@ -18,7 +18,7 @@ class WorkflowRun(Base):
     heartbeat_at = Column(DateTime(timezone=True), nullable=True)
     finished_at = Column(DateTime(timezone=True), nullable=True)
     error = Column(Text, nullable=True)
-    query = Column(Text, nullable=True)
+    inputs = Column(JSON, nullable=True)
     resume_payload = Column(Text, nullable=True)
     result = Column(JSON, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

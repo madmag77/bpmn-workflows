@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 from langchain_openai import ChatOpenAI
 from pdf2image import convert_from_path
 import logging
-from awsl.paper_rename_workflow.prompts import get_vision_prompt
+from .prompts import get_vision_prompt
 from PIL import Image as PILImage
 
 logger = logging.getLogger(__name__)
@@ -35,7 +35,7 @@ def read_pdf_file(file_paths: list[str], initial_file_paths_to_process: list[str
         )
         return {"pages": page_images, "file_path": file_path, "remaining_file_paths": file_paths_to_process}
     except Exception as e:
-        print(f"Error rendering PDF pages as images: {str(e)}")
+        logger.error(f"Error rendering PDF pages as images: {str(e)}")
         raise e
 
 def extract_metadata(pages: list[PILImage.Image], config: dict) -> dict:
@@ -87,7 +87,6 @@ def extract_metadata(pages: list[PILImage.Image], config: dict) -> dict:
         }
     ]
     vision_book = structured_vision_llm.invoke(vision_messages)
-    logger.info(f"Extracted book: {vision_book}")
 
     return {"title": vision_book.book_name, "authors": vision_book.authors_names, "year": vision_book.year}
 

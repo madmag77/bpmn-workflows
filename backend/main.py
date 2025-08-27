@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import json
-import os
 import uuid
 from contextlib import asynccontextmanager
 from enum import Enum
+from typing import Optional
 
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,17 +12,10 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-import steps.deepresearch_functions as drf
-
 from backend.database import init_db, get_session
 from backend.models import WorkflowRun
 from backend.workflow_loader import list_templates, get_template
 from fastapi_mcp import FastApiMCP
-
-POSTGRES_URL = os.getenv("DATABASE_URL")
-
-FN_MAP = {name: getattr(drf, name) for name in dir(drf) if not name.startswith("_")}
-
 
 class WorkflowStatus(str, Enum):
     QUEUED = "queued"
@@ -36,11 +29,11 @@ class WorkflowStatus(str, Enum):
 # Pydantic models for request/response validation
 class StartWorkflowRequest(BaseModel):
     template_name: str
-    query: str = ""
+    inputs: dict = {}
 
 
 class ContinueWorkflowRequest(BaseModel):
-    query: str = ""
+    inputs: dict = {}
 
 
 class WorkflowResponse(BaseModel):
@@ -51,9 +44,11 @@ class WorkflowResponse(BaseModel):
 
 class WorkflowDetail(BaseModel):
     id: str
+    inputs: dict
     template: str
     status: WorkflowStatus
     result: dict
+    error: Optional[str] = None
 
 
 class WorkflowHistory(BaseModel):
@@ -118,9 +113,11 @@ def workflow_detail(workflow_run_id: str, db: Session = Depends(get_session)) ->
         raise HTTPException(404, "Workflow not found")
     return WorkflowDetail(
         id=run.id,
+        inputs=run.inputs,
         template=run.graph_name,
         status=run.state,
         result=run.result,
+        error=run.error,
     )
 
 
@@ -138,7 +135,7 @@ def start_workflow(
         graph_name=tpl["id"],
         thread_id=workflow_run_id,
         state=WorkflowStatus.QUEUED,
-        query=request.query,
+        inputs=request.inputs,
         result={},
     )
     db.add(run)
@@ -160,7 +157,7 @@ def continue_workflow(
         raise HTTPException(400, "Workflow was canceled")
     if run.state != WorkflowStatus.NEEDS_INPUT:
         raise HTTPException(400, "Workflow not waiting for input")
-    run.resume_payload = json.dumps({"answer": request.query})
+    run.resume_payload = json.dumps({"answer": request.inputs})
     run.state = WorkflowStatus.QUEUED
     db.commit()
     db.refresh(run)

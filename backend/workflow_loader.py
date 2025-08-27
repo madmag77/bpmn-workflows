@@ -6,8 +6,8 @@ WORKFLOWS_DIR = Path(__file__).resolve().parent.parent / "workflows"
 
 def list_templates() -> List[Dict[str, str]]:
     templates: List[Dict[str, str]] = []
-    for xml in WORKFLOWS_DIR.glob("**/*.xml"):
-        templates.append({"id": xml.stem, "name": xml.stem, "path": str(xml)})
+    for awsl in WORKFLOWS_DIR.glob("**/*.awsl"):
+        templates.append({"id": awsl.stem, "name": awsl.stem, "path": str(awsl)})
     return templates
 
 
