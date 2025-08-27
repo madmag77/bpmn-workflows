@@ -21,12 +21,13 @@ def test_templates():
     with TestClient(main.app) as client:
         resp = client.get("/workflow-templates")
         assert resp.status_code == 200
-        assert any(t["id"] == "deepresearch" for t in resp.json())
+        print(resp.json())
+        assert any(t["id"] == "sample" for t in resp.json())
 
 
 def test_start_and_continue(monkeypatch):
     with TestClient(main.app) as client:
-        start = client.post("/workflows", json={"template_name": "deepresearch", "query": "hi"})
+        start = client.post("/workflows", json={"template_name": "sample", "query": "hi"})
         assert start.status_code == 200
         wf_id = start.json()["id"]
         assert start.json()["status"] == "queued"
@@ -36,7 +37,7 @@ def test_start_and_continue(monkeypatch):
 
 def test_cancel_workflow():
     with TestClient(main.app) as client:
-        start = client.post("/workflows", json={"template_name": "deepresearch", "query": "hi"})
+        start = client.post("/workflows", json={"template_name": "sample", "query": "hi"})
         wf_id = start.json()["id"]
         # set state to running
         db: Session = SessionLocal()
