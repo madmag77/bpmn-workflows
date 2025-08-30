@@ -10,3 +10,5 @@ frontend/package-lock.json
 
 .DS_Store
 *.vsix
+dist/
+build/

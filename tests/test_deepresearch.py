@@ -1,6 +1,6 @@
 from bpmn_workflows.run_bpmn_workflow import run_workflow
 
-XML_PATH = "workflows/deepresearch/deepresearch.xml"
+XML_PATH = "workflow_definitions/deepresearch/deepresearch.xml"
 
 calls = dict()
 

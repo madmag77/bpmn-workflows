@@ -1,0 +1,3 @@
+postgres: sh -c 'container ls --format table | grep "awsl-postgres" || container start awsl-postgres; sleep 5 && container logs -f awsl-postgres'
+backend: sh -c "sleep 6 && env DATABASE_URL=postgresql://postgres:postgres@localhost:5432/workflows ./dist/backend_run"
+frontend: sh -c "cd frontend && npm run dev -- --port 3000"

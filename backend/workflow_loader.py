@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import List, Dict
 
-WORKFLOWS_DIR = Path(__file__).resolve().parent.parent / "workflows"
+WORKFLOWS_DIR = Path(__file__).resolve().parent.parent / "workflow_definitions"
 
 
 def list_templates() -> List[Dict[str, str]]:

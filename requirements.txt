@@ -6,6 +6,7 @@ langgraph-checkpoint-sqlite
 langgraph-checkpoint-postgres
 SQLAlchemy>=2.0
 psycopg2-binary
+psycopg[binary]
 xmlschema
 pytest
 dotenv
@@ -31,3 +32,4 @@ pdf2image
 langchain
 langchain_core
 langchain_openai
+pyinstaller
