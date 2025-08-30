@@ -2,6 +2,7 @@ import os
 import json
 import asyncio
 from typing import Any, Dict
+from pathlib import Path
 
 import asyncpg
 from langgraph.checkpoint.postgres import PostgresSaver
@@ -74,9 +75,26 @@ async def run_awsl(job: Dict[str, Any]) -> tuple[str, Dict[str, Any]]:
         params = None
     # Convert absolute path to relative module path
     workflow_path = tpl["path"]
-    # Get path relative to current working directory
-    rel_path = os.path.relpath(workflow_path, start=os.getcwd())
-    functions_module = rel_path.replace(".awsl", "").replace(os.sep, ".")
+    # Convert path to module name for import
+    # workflow_path is something like /path/to/workflow_definitions/paper_rename_workflow/paper_rename_workflow.awsl
+    # We need to extract the module path: workflow_definitions.paper_rename_workflow.paper_rename_workflow
+    
+    # First, get the path relative to the project root
+    try:
+        # Try to find workflow_definitions in the path
+        path_parts = Path(workflow_path).parts
+        wf_idx = path_parts.index("workflow_definitions")
+        # Get parts from workflow_definitions onwards
+        module_parts = path_parts[wf_idx:]
+        # Remove .awsl extension from the last part
+        if module_parts[-1].endswith(".awsl"):
+            module_parts = module_parts[:-1] + (module_parts[-1].replace(".awsl", ""),)
+        functions_module = ".".join(module_parts)
+    except (ValueError, IndexError):
+        # Fallback: use relative path from current directory
+        rel_path = os.path.relpath(workflow_path, start=os.getcwd())
+        functions_module = rel_path.replace(".awsl", "").replace(os.sep, ".")
+    
     mod = __import__(functions_module, fromlist=["*"])
     fn_map = {k: getattr(mod, k) for k in dir(mod) if not k.startswith("_")}
     with PostgresSaver.from_conn_string(os.getenv("DATABASE_URL")) as saver:

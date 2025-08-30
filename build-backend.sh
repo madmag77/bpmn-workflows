@@ -45,6 +45,10 @@ pyinstaller --onefile \
     --hidden-import asyncpg \
     --hidden-import backend.main \
     --hidden-import worker.worker_pool \
+    --hidden-import pdf2image \
+    --hidden-import PIL \
+    --hidden-import PIL.Image \
+    --hidden-import langchain_openai \
     --collect-all psycopg \
     backend_run.py
 

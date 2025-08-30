@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 from langchain_openai import ChatOpenAI
 from pdf2image import convert_from_path
 import logging
-from .prompts import get_vision_prompt
+from workflow_definitions.paper_rename_workflow.prompts import get_vision_prompt
 from PIL import Image as PILImage
 
 logger = logging.getLogger(__name__)
