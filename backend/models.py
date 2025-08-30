@@ -2,7 +2,7 @@ from sqlalchemy import Column, String, DateTime, Text, JSON, Integer
 from sqlalchemy.sql import func
 import uuid
 
-from .database import Base
+from backend.database import Base
 
 class WorkflowRun(Base):
     __tablename__ = "workflow_runs"

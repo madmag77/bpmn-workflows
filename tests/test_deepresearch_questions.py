@@ -3,7 +3,7 @@ import json
 from bpmn_workflows.run_bpmn_workflow import run_workflow
 from langgraph.types import interrupt
 
-XML_PATH = "workflows/deepresearch/deepresearch.xml"
+XML_PATH = "workflow_definitions/deepresearch/deepresearch.xml"
 
 def analyse_no_questions(state):
         return {"extended_query": state.get("query", ""), "questions": []}
